@@ -678,7 +678,7 @@
         </option>
         <option>
           <name>PreInclude</name>
-          <state/>
+          <state>$PROJ_DIR$/../mcux_config.h</state>
         </option>
       </data>
     </settings>
@@ -1803,7 +1803,7 @@
         </option>
         <option>
           <name>PreInclude</name>
-          <state/>
+          <state>$PROJ_DIR$/../mcux_config.h</state>
         </option>
       </data>
     </settings>
@@ -2255,6 +2255,15 @@
     <name>source</name>
     <file>
       <name>$PROJ_DIR$/../dma_memory_to_memory.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$/../ZephyrMap_Gen.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$/../mcux_config.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$/../mcux_config.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$/../mcux_config.h</name>

@@ -349,7 +349,7 @@
             <useXO>0</useXO>
             <uClangAs>1</uClangAs>
             <VariousControls>
-              <MiscControls/>
+              <MiscControls>-include ../mcux_config.h</MiscControls>
               <Define>MCUXPRESSO_SDK, CPU_MIMXRT685SFVKB_cm33, MIMXRT685S_cm33_SERIES</Define>
               <Undefine/>
               <IncludePath>..;../../../../../flash_config;../../../../../../../CMSIS/Core/Include;../../../../../../../CMSIS/Core/Include/m-profile;../../../../../../../devices/MIMXRT685S;../../../../../../../devices/MIMXRT685S/periph;../../../../../../../devices/MIMXRT685S/drivers;../../../../../../../devices/MIMXRT685S/utilities/debug_console_lite;../../../../../../../devices/MIMXRT685S/utilities/str;../../../../../../../components/uart</IncludePath>
@@ -382,6 +382,21 @@
               <FileName>spi_dma_b2b_transfer_master.c</FileName>
               <FileType>1</FileType>
               <FilePath>../spi_dma_b2b_transfer_master.c</FilePath>
+            </File>
+            <File>
+              <FileName>ZephyrMap_Gen.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>../ZephyrMap_Gen.h</FilePath>
+            </File>
+            <File>
+              <FileName>mcux_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>../mcux_config.h</FilePath>
+            </File>
+            <File>
+              <FileName>mcux_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>../mcux_config.h</FilePath>
             </File>
             <File>
               <FileName>mcux_config.h</FileName>
@@ -1398,7 +1413,7 @@
             <useXO>0</useXO>
             <uClangAs>1</uClangAs>
             <VariousControls>
-              <MiscControls/>
+              <MiscControls>-include ../mcux_config.h</MiscControls>
               <Define>MCUXPRESSO_SDK, CPU_MIMXRT685SFVKB_cm33, MIMXRT685S_cm33_SERIES</Define>
               <Undefine/>
               <IncludePath>..;../../../../../flash_config;../../../../../../../CMSIS/Core/Include;../../../../../../../CMSIS/Core/Include/m-profile;../../../../../../../devices/MIMXRT685S;../../../../../../../devices/MIMXRT685S/periph;../../../../../../../devices/MIMXRT685S/drivers;../../../../../../../devices/MIMXRT685S/utilities/debug_console_lite;../../../../../../../devices/MIMXRT685S/utilities/str;../../../../../../../components/uart</IncludePath>
@@ -1431,6 +1446,21 @@
               <FileName>spi_dma_b2b_transfer_master.c</FileName>
               <FileType>1</FileType>
               <FilePath>../spi_dma_b2b_transfer_master.c</FilePath>
+            </File>
+            <File>
+              <FileName>ZephyrMap_Gen.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>../ZephyrMap_Gen.h</FilePath>
+            </File>
+            <File>
+              <FileName>mcux_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>../mcux_config.h</FilePath>
+            </File>
+            <File>
+              <FileName>mcux_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>../mcux_config.h</FilePath>
             </File>
             <File>
               <FileName>mcux_config.h</FileName>

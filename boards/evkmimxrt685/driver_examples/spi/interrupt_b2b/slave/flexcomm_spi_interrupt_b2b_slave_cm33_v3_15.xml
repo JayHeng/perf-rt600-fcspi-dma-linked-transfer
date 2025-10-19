@@ -165,6 +165,9 @@
       <files mask="pin_mux.h"/>
       <files mask="app.h"/>
     </source>
+    <source path="." project_relative_path="source" type="c_include">
+      <files mask="ZephyrMap_Gen.h"/>
+    </source>
     <source path="." project_relative_path="source" type="c_preinclude">
       <files mask="mcux_config.h"/>
     </source>

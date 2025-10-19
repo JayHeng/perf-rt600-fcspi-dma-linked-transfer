@@ -12,6 +12,7 @@ ENDIF()
 
 SET(CMAKE_ASM_FLAGS_FLASH_DEBUG " \
     ${CMAKE_ASM_FLAGS_FLASH_DEBUG} \
+    -include ${ProjDirPath}/../mcux_config.h \
     -D__STARTUP_CLEAR_BSS \
     -DMCUXPRESSO_SDK \
     -DCPU_MIMXRT685SFVKB_cm33 \
@@ -23,6 +24,7 @@ SET(CMAKE_ASM_FLAGS_FLASH_DEBUG " \
 ")
 SET(CMAKE_ASM_FLAGS_FLASH_RELEASE " \
     ${CMAKE_ASM_FLAGS_FLASH_RELEASE} \
+    -include ${ProjDirPath}/../mcux_config.h \
     -D__STARTUP_CLEAR_BSS \
     -DMCUXPRESSO_SDK \
     -DCPU_MIMXRT685SFVKB_cm33 \
@@ -82,6 +84,7 @@ SET(CMAKE_C_FLAGS_FLASH_RELEASE " \
 ")
 SET(CMAKE_CXX_FLAGS_FLASH_DEBUG " \
     ${CMAKE_CXX_FLAGS_FLASH_DEBUG} \
+    -include ${ProjDirPath}/../mcux_config.h \
     -DDEBUG \
     -DMCUX_META_BUILD \
     -DMCUXPRESSO_SDK \
@@ -105,6 +108,7 @@ SET(CMAKE_CXX_FLAGS_FLASH_DEBUG " \
 ")
 SET(CMAKE_CXX_FLAGS_FLASH_RELEASE " \
     ${CMAKE_CXX_FLAGS_FLASH_RELEASE} \
+    -include ${ProjDirPath}/../mcux_config.h \
     -DNDEBUG \
     -DMCUX_META_BUILD \
     -DMCUXPRESSO_SDK \

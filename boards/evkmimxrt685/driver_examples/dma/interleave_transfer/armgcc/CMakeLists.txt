@@ -50,6 +50,7 @@ add_executable(${MCUX_SDK_PROJECT_NAME}
 "${ProjDirPath}/../pin_mux.h"
 "${ProjDirPath}/../hardware_init.c"
 "${ProjDirPath}/../app.h"
+"${ProjDirPath}/../ZephyrMap_Gen.h"
 "${ProjDirPath}/../mcux_config.h"
 )
 
