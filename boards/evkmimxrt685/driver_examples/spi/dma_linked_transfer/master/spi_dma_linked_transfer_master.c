@@ -60,7 +60,7 @@ int main(void)
     BOARD_InitHardware();
 
     /* Print project information. */
-    PRINTF("This is SPI DMA transfer master example.\r\n");
+    PRINTF("This is SPI DMA transfer master example(SPI5, PIO1-3/4/5/6).\r\n");
     PRINTF("This example will communicate with another slave SPI on the other board.\r\n");
     PRINTF("Please start the slave board first!\r\n");
 
