@@ -28,6 +28,7 @@ static volatile bool s_Transfer_Done = false;
 DMA_ALLOCATE_LINK_DESCRIPTORS(s_dma_table, DMA_DESCRIPTOR_NUM);
 DMA_ALLOCATE_DATA_TRANSFER_BUFFER(static uint32_t s_srcBuffer1[BUFF_LENGTH], sizeof(uint32_t)) = {1, 2, 3, 4};
 DMA_ALLOCATE_DATA_TRANSFER_BUFFER(static uint32_t s_srcBuffer2[4], sizeof(uint32_t))           = {11, 22, 33, 44};
+DMA_ALLOCATE_DATA_TRANSFER_BUFFER(static uint32_t s_srcBuffer3[4], sizeof(uint32_t))           = {111, 222, 333, 444};
 DMA_ALLOCATE_DATA_TRANSFER_BUFFER(static uint32_t s_destBuffer[BUFF_LENGTH * DMA_DESCRIPTOR_NUM],
                                   sizeof(uint32_t))                                            = {0x00};
 static volatile uint32_t s_transferCount                                                       = 0;
@@ -78,7 +79,12 @@ int main(void)
     DMA_SetupDescriptor(&(s_dma_table[1]),
                         DMA_CHANNEL_XFER(true, false, false, true, 4U, kDMA_AddressInterleave1xWidth,
                                          kDMA_AddressInterleave1xWidth, 16U),
-                        s_srcBuffer2, &s_destBuffer[4], &(s_dma_table[0]));
+                        s_srcBuffer2, &s_destBuffer[4], &(s_dma_table[2]));
+
+    DMA_SetupDescriptor(&(s_dma_table[2]),
+                        DMA_CHANNEL_XFER(true, false, false, true, 4U, kDMA_AddressInterleave1xWidth,
+                                         kDMA_AddressInterleave1xWidth, 16U),
+                        s_srcBuffer3, &s_destBuffer[8], &(s_dma_table[0]));
 
     DMA_SubmitChannelDescriptor(&s_DMA_Handle, &(s_dma_table[0]));
     DMA_StartTransfer(&s_DMA_Handle);
