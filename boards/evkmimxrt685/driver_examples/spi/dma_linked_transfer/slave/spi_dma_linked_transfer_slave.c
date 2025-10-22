@@ -39,6 +39,8 @@ dma_handle_t slaveRxHandle;
 spi_dma_handle_t slaveHandle;
 
 volatile bool isTransferCompleted = false;
+static volatile uint32_t s_transferCount = 0;
+#define DMA_LINK_TRANSFER_COUNT 2
 
 /*******************************************************************************
  * Code
@@ -47,7 +49,10 @@ static void SPI_SlaveUserCallback(SPI_Type *base, spi_dma_handle_t *handle, stat
 {
     if (status == kStatus_Success)
     {
-        isTransferCompleted = true;
+        if (++s_transferCount >= DMA_LINK_TRANSFER_COUNT)
+        {
+            isTransferCompleted = true;
+        }
     }
 }
 
@@ -116,7 +121,7 @@ static void EXAMPLE_SlaveDMASetup(void)
 static void EXAMPLE_SlaveStartDMATransfer(void)
 {
     uint32_t i = 0U;
-    spi_transfer_t slaveXfer;
+    spi_transfer_t slaveXferPing, slaveXferPong;
 
     /* Initialzie the transfer data */
     for (i = 0U; i < TRANSFER_SIZE; i++)
@@ -129,13 +134,18 @@ static void EXAMPLE_SlaveStartDMATransfer(void)
     SPI_SlaveTransferCreateHandleDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, SPI_SlaveUserCallback, NULL, &slaveTxHandle,
                                      &slaveRxHandle);
 
-    slaveXfer.txData   = (uint8_t *)&slaveTxData;
-    slaveXfer.rxData   = (uint8_t *)&slaveRxData;
-    slaveXfer.dataSize = TRANSFER_SIZE * sizeof(slaveTxData[0]);
-    slaveXfer.configFlags = kSPI_FrameAssert;
+    slaveXferPing.txData   = (uint8_t *)&slaveTxData;
+    slaveXferPing.rxData   = (uint8_t *)&slaveRxData;
+    slaveXferPing.dataSize = (TRANSFER_SIZE / 2) * sizeof(slaveTxData[0]);
+    slaveXferPing.configFlags = kSPI_FrameAssert;
+
+    slaveXferPong.txData   = (uint8_t *)&slaveTxData[TRANSFER_SIZE/2];
+    slaveXferPong.rxData   = (uint8_t *)&slaveRxData[TRANSFER_SIZE/2];
+    slaveXferPong.dataSize = (TRANSFER_SIZE / 2) * sizeof(slaveTxData[0]);
+    slaveXferPong.configFlags = kSPI_FrameAssert;
 
     /* Start transfer, when transmission complete, the SPI_SlaveUserCallback will be called. */
-    if (kStatus_Success != SPI_SlaveTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXfer))
+    if (kStatus_Success != SPI_SlavePingPongTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXferPing, &slaveXferPong))
     {
         PRINTF("There is an error when start SPI_SlaveTransferDMA \r\n");
     }

@@ -971,6 +971,38 @@ status_t DMA_SubmitTransfer(dma_handle_t *handle, dma_transfer_config_t *config)
     return kStatus_Success;
 }
 
+status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t *config)
+{
+    assert((NULL != handle) && (NULL != config));
+    assert(FSL_FEATURE_DMA_NUMBER_OF_CHANNELSn(handle->base) != -1);
+    assert(handle->channel < (uint32_t)FSL_FEATURE_DMA_NUMBER_OF_CHANNELSn(handle->base));
+
+    uint32_t instance            = DMA_GetInstance(handle->base);
+    dma_descriptor_t *descriptor = (dma_descriptor_t *)(&s_dma_descriptor_table[instance][handle->channel]);
+
+    /* Previous transfer has not finished */
+    if (DMA_ChannelIsActive(handle->base, handle->channel))
+    {
+        return kStatus_DMA_Busy;
+    }
+
+    /* enable/disable peripheral request */
+    if (config->isPeriph)
+    {
+        DMA_EnableChannelPeriphRq(handle->base, handle->channel);
+    }
+    else
+    {
+        DMA_DisableChannelPeriphRq(handle->base, handle->channel);
+    }
+
+    DMA_CreateDescriptor(descriptor, &config->xfercfg, config->srcAddr, config->dstAddr, config->nextDesc);
+    /* Set channel XFERCFG register according first channel descriptor. */
+    handle->base->CHANNEL[handle->channel].XFERCFG = descriptor->xfercfg;
+
+    return kStatus_Success;
+}
+
 /*!
  * brief DMA start transfer.
  *

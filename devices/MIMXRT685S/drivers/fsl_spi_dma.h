@@ -104,6 +104,7 @@ status_t SPI_MasterTransferCreateHandleDMA(SPI_Type *base,
  * @retval kStatus_SPI_Busy SPI is not idle, is running another transfer.
  */
 status_t SPI_MasterTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xfer);
+status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xferPing, spi_transfer_t *xferPong);
 
 /*!
  * @brief Transfers a block of data using a DMA method.
@@ -161,6 +162,11 @@ static inline status_t SPI_SlaveTransferCreateHandleDMA(SPI_Type *base,
 static inline status_t SPI_SlaveTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xfer)
 {
     return SPI_MasterTransferDMA(base, handle, xfer);
+}
+
+static inline status_t SPI_SlavePingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xferPing, spi_transfer_t *xferPong)
+{
+    return SPI_MasterPingPongTransferDMA(base, handle, xferPing, xferPong);
 }
 
 /*!

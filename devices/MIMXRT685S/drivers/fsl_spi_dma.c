@@ -197,6 +197,35 @@ static void SPI_TransferSubmitNextRxDMA(SPI_Type *base, spi_dma_handle_t *handle
     handle->rxRemainingBytes -= nextRxSize;
 }
 
+static void SPI_TransferSubmitPingPongNextRxDMA(SPI_Type *base, spi_dma_handle_t *handle)
+{
+    size_t nextRxSize;
+    dma_transfer_config_t dmaXferConfig;
+    dma_transfer_type_t dmaXferType;
+    uint8_t *nextRxData;
+
+    uint8_t *address = (uint8_t *)(uintptr_t)&base->FIFORD;
+
+    nextRxSize = MIN(DMA_MAX_TRANSFER_COUNT, handle->rxRemainingBytes);
+
+    if (handle->rxNextData != NULL)
+    {
+        dmaXferType = kDMA_PeripheralToMemory;
+        nextRxData  = handle->rxNextData;
+        handle->rxNextData += nextRxSize;
+    }
+    else
+    {
+        dmaXferType = kDMA_StaticToStatic;
+        nextRxData  = (uint8_t*)&s_rxDummy;
+    }
+
+    DMA_PrepareTransfer(&dmaXferConfig, address, nextRxData, handle->bytesPerFrame, nextRxSize, dmaXferType, NULL);
+    (void)DMA_SubmitTransfer(handle->rxHandle, &dmaXferConfig);
+
+    handle->rxRemainingBytes -= nextRxSize;
+}
+
 /*!
  * @brief Prepare for TX
  *
@@ -384,6 +413,71 @@ status_t SPI_MasterTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_tra
     }
 
     SPI_TransferSetupTxContextDMA(base, handle, xfer, spi_config_p);
+    SPI_EnableTxDMA(base, true);
+
+    result = SPI_TransferSubmitNextTxDMA(base, handle);
+    if (result != kStatus_Success)
+    {
+        return result;
+    }
+
+    handle->txInProgress  = true;
+    DMA_StartTransfer(handle->txHandle);
+
+    return result;
+}
+
+status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xferPing, spi_transfer_t *xferPong)
+{
+    assert(!((NULL == handle) || (NULL == xferPing)));
+
+    status_t result = kStatus_Success;
+    spi_config_t *spi_config_p;
+
+    if ((NULL == handle) || (NULL == xferPing))
+    {
+        return kStatus_InvalidArgument;
+    }
+
+    if (xferPing->dataSize < handle->bytesPerFrame)
+    {
+        return kStatus_InvalidArgument;
+    }
+
+    /* Check if the device is busy */
+    if (handle->state == (uint8_t)kSPI_Busy)
+    {
+        return kStatus_SPI_Busy;
+    }
+
+    /* Clear FIFOs before transfer. */
+    base->FIFOCFG  |= (SPI_FIFOCFG_EMPTYTX_MASK | SPI_FIFOCFG_EMPTYRX_MASK);
+    base->FIFOSTAT |= (SPI_FIFOSTAT_TXERR_MASK  | SPI_FIFOSTAT_RXERR_MASK);
+
+    handle->state         = (uint8_t)kSPI_Busy;
+    spi_config_p          = (spi_config_t *)SPI_GetConfig(base);
+    handle->bytesPerFrame =
+        (uint8_t)((spi_config_p->dataWidth > kSPI_Data8Bits) ? (sizeof(uint16_t)) : (sizeof(uint8_t)));
+
+    /* receive */
+    SPI_TransferSetupRxContextDMA(handle, xferPing);
+    SPI_EnableRxDMA(base, true);
+    SPI_TransferSubmitNextRxDMA(base, handle);
+    handle->rxInProgress = true;
+    DMA_StartTransfer(handle->rxHandle);
+
+    /* transmit */
+    PrepareTxLastWord(handle, xferPing, spi_config_p);
+
+    if (xferPing->dataSize == handle->bytesPerFrame)
+    {
+        /* Only one time send, write the TX register directly. */
+        base->FIFOWR = handle->lastword;
+        handle->txInProgress = false;
+        return kStatus_Success;
+    }
+
+    SPI_TransferSetupTxContextDMA(base, handle, xferPing, spi_config_p);
     SPI_EnableTxDMA(base, true);
 
     result = SPI_TransferSubmitNextTxDMA(base, handle);

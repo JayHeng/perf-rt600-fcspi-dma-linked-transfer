@@ -740,6 +740,7 @@ void DMA_PrepareChannelTransfer(dma_channel_config_t *config,
  * @retval kStatus_DMA_Busy It means the given channel is busy, need to submit request later.
  */
 status_t DMA_SubmitTransfer(dma_handle_t *handle, dma_transfer_config_t *config);
+status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t *config);
 
 /*!
  * @brief Submit channel transfer paramter directly.

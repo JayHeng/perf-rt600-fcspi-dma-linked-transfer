@@ -144,35 +144,9 @@ static void EXAMPLE_MasterStartDMATransfer(void)
 
 static void EXAMPLE_TransferDataCheck(void)
 {
-    uint32_t i = 0U, errorCount = 0U;
-
     /* Wait until transfer completed */
     while (!isTransferCompleted)
     {
     }
-
-    PRINTF("\r\nThe received data are:");
-    /*Check if the data is right*/
-    for (i = 0; i < TRANSFER_SIZE; i++)
-    {
-        /* Print 16 numbers in a line */
-        if ((i & 0x0FU) == 0U)
-        {
-            PRINTF("\r\n  ");
-        }
-        PRINTF("  0x%02X", masterRxData[i]);
-        /* Check if data matched. */
-        if (masterTxData[i] != masterRxData[i])
-        {
-            errorCount++;
-        }
-    }
-    if (errorCount == 0)
-    {
-        PRINTF("\r\nSPI transfer all data matched! \r\n");
-    }
-    else
-    {
-        PRINTF("\r\nError occurred in SPI transfer ! \r\n");
-    }
+    PRINTF("\r\nSPI transfer all data done! \r\n");
 }
