@@ -27,6 +27,9 @@ static void EXAMPLE_SlaveDMASetup(void);
 static void EXAMPLE_SlaveStartDMATransfer(void);
 static void EXAMPLE_TransferDataCheck(void);
 
+static void EXAMPLE_InitBuffers(void);
+static void EXAMPLE_SlaveDMASetupAndStartTransfer(void);
+
 /*******************************************************************************
  * Variables
  ******************************************************************************/
@@ -42,6 +45,9 @@ volatile bool isTransferCompleted = false;
 static volatile uint32_t s_transferCount = 0;
 #define DMA_LINK_TRANSFER_COUNT 2
 
+static dma_handle_t s_DMA_Handle;
+DMA_ALLOCATE_LINK_DESCRIPTORS(s_dma_table, DMA_LINK_TRANSFER_COUNT);
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -52,6 +58,18 @@ static void SPI_SlaveUserCallback(SPI_Type *base, spi_dma_handle_t *handle, stat
         if (++s_transferCount >= DMA_LINK_TRANSFER_COUNT)
         {
             isTransferCompleted = true;
+        }
+    }
+}
+
+void DMA_Callback(dma_handle_t *handle, void *param, bool transferDone, uint32_t tcds)
+{
+    if (transferDone)
+    {
+        if (++s_transferCount >= DMA_LINK_TRANSFER_COUNT)
+        {
+            isTransferCompleted = true;
+            DMA_DisableChannel(DMA0, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
         }
     }
 }
@@ -71,12 +89,16 @@ int main(void)
 
     /* Initialize the SPI slave instance. */
     EXAMPLE_SlaveInit();
+    
+    EXAMPLE_InitBuffers();
 
     /* Configure DMA for slave SPI. */
-    EXAMPLE_SlaveDMASetup();
+    //EXAMPLE_SlaveDMASetup();
 
     /* Start SPI DMA transfer. */
-    EXAMPLE_SlaveStartDMATransfer();
+    //EXAMPLE_SlaveStartDMATransfer();
+    
+    EXAMPLE_SlaveDMASetupAndStartTransfer();
 
     /* Waiting for transmission complete and check if all data matched. */
     EXAMPLE_TransferDataCheck();
@@ -104,6 +126,17 @@ static void EXAMPLE_SlaveInit(void)
     SPI_SlaveInit(EXAMPLE_SPI_SLAVE, &slaveConfig);
 }
 
+static void EXAMPLE_InitBuffers(void)
+{
+    uint32_t i = 0U;
+    /* Initialzie the transfer data */
+    for (i = 0U; i < TRANSFER_SIZE; i++)
+    {
+        slaveTxData[i] = i % 256U;
+        slaveRxData[i] = 0U;
+    }
+}
+
 static void EXAMPLE_SlaveDMASetup(void)
 {
     /* DMA init */
@@ -120,15 +153,7 @@ static void EXAMPLE_SlaveDMASetup(void)
 
 static void EXAMPLE_SlaveStartDMATransfer(void)
 {
-    uint32_t i = 0U;
     spi_transfer_t slaveXferPing, slaveXferPong;
-
-    /* Initialzie the transfer data */
-    for (i = 0U; i < TRANSFER_SIZE; i++)
-    {
-        slaveTxData[i] = i % 256U;
-        slaveRxData[i] = 0U;
-    }
 
     /* Create handle for slave instance. */
     SPI_SlaveTransferCreateHandleDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, SPI_SlaveUserCallback, NULL, &slaveTxHandle,
@@ -149,6 +174,30 @@ static void EXAMPLE_SlaveStartDMATransfer(void)
     {
         PRINTF("There is an error when start SPI_SlaveTransferDMA \r\n");
     }
+}
+
+static void EXAMPLE_SlaveDMASetupAndStartTransfer(void)
+{
+    DMA_Init(EXAMPLE_DMA);
+    DMA_CreateHandle(&s_DMA_Handle, EXAMPLE_DMA, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
+    DMA_EnableChannel(EXAMPLE_DMA, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
+    DMA_SetCallback(&s_DMA_Handle, DMA_Callback, NULL);
+
+    DMA_SetupDescriptor(&(s_dma_table[0]),
+                        DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
+                                         1, TRANSFER_SIZE/2),
+                        (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[0], &(s_dma_table[1]));
+
+    DMA_SetupDescriptor(&(s_dma_table[1]),
+                        DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
+                                         1, TRANSFER_SIZE/2),
+                        (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[TRANSFER_SIZE/2], &(s_dma_table[0]));
+
+    DMA_SubmitChannelDescriptor(&s_DMA_Handle, &(s_dma_table[0]));
+
+    DMA_EnableChannelPeriphRq(EXAMPLE_DMA, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
+    SPI_EnableRxDMA(EXAMPLE_SPI_SLAVE, true);
+    DMA_StartTransfer(&s_DMA_Handle);
 }
 
 static void EXAMPLE_TransferDataCheck(void)
