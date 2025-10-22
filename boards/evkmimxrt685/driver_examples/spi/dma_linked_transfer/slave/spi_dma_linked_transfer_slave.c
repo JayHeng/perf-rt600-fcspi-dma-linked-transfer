@@ -93,12 +93,12 @@ int main(void)
     EXAMPLE_InitBuffers();
 
     /* Configure DMA for slave SPI. */
-    //EXAMPLE_SlaveDMASetup();
+    EXAMPLE_SlaveDMASetup();
 
     /* Start SPI DMA transfer. */
-    //EXAMPLE_SlaveStartDMATransfer();
+    EXAMPLE_SlaveStartDMATransfer();
     
-    EXAMPLE_SlaveDMASetupAndStartTransfer();
+    //EXAMPLE_SlaveDMASetupAndStartTransfer();
 
     /* Waiting for transmission complete and check if all data matched. */
     EXAMPLE_TransferDataCheck();

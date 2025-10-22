@@ -55,6 +55,9 @@ struct _spi_dma_handle
     uint8_t *rxNextData;         /*!< The pointer of next time rx data*/
     size_t rxRemainingBytes;     /*!< Number of data to be received [in bytes] */
     bool isSlave;                /*!< SPI work in slave mode. */
+    bool isPingpongTransfer;
+    size_t pingpongBufSize;
+    bool needToInvlokeRxCallback;
 };
 
 /*******************************************************************************

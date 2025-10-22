@@ -81,6 +81,8 @@ static dma_descriptor_t *s_dma_descriptor_table[] = {s_dma_descriptor_table0, s_
 static dma_descriptor_t *s_dma_descriptor_table[] = {s_dma_descriptor_table0};
 #endif
 
+AT_NONCACHEABLE_SECTION_ALIGN(dma_descriptor_t s_dma_descriptor_table_pingpong[2], FSL_FEATURE_DMA_DESCRIPTOR_ALIGN_SIZE);
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -971,14 +973,11 @@ status_t DMA_SubmitTransfer(dma_handle_t *handle, dma_transfer_config_t *config)
     return kStatus_Success;
 }
 
-status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t *config)
+status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t *config, bool isPing)
 {
     assert((NULL != handle) && (NULL != config));
     assert(FSL_FEATURE_DMA_NUMBER_OF_CHANNELSn(handle->base) != -1);
     assert(handle->channel < (uint32_t)FSL_FEATURE_DMA_NUMBER_OF_CHANNELSn(handle->base));
-
-    uint32_t instance            = DMA_GetInstance(handle->base);
-    dma_descriptor_t *descriptor = (dma_descriptor_t *)(&s_dma_descriptor_table[instance][handle->channel]);
 
     /* Previous transfer has not finished */
     if (DMA_ChannelIsActive(handle->base, handle->channel))
@@ -996,9 +995,18 @@ status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t 
         DMA_DisableChannelPeriphRq(handle->base, handle->channel);
     }
 
-    DMA_CreateDescriptor(descriptor, &config->xfercfg, config->srcAddr, config->dstAddr, config->nextDesc);
-    /* Set channel XFERCFG register according first channel descriptor. */
-    handle->base->CHANNEL[handle->channel].XFERCFG = descriptor->xfercfg;
+    if (isPing)
+    {
+        DMA_CreateDescriptor(&(s_dma_descriptor_table_pingpong[0]), &config->xfercfg, config->srcAddr, config->dstAddr, &(s_dma_descriptor_table_pingpong[1]));
+        /* Set channel XFERCFG register according first channel descriptor. */
+        handle->base->CHANNEL[handle->channel].XFERCFG = s_dma_descriptor_table_pingpong[0].xfercfg;
+    }
+    else
+    {
+        DMA_CreateDescriptor(&(s_dma_descriptor_table_pingpong[1]), &config->xfercfg, config->srcAddr, config->dstAddr, &(s_dma_descriptor_table_pingpong[0]));
+        /* Set channel XFERCFG register according first channel descriptor. */
+        handle->base->CHANNEL[handle->channel].XFERCFG = s_dma_descriptor_table_pingpong[1].xfercfg;
+    }
 
     return kStatus_Success;
 }
