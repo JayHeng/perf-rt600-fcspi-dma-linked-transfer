@@ -224,6 +224,7 @@ void SPI_TransferSubmitPingPongNextRxDMA(SPI_Type *base, spi_dma_handle_t *handl
     }
 
     DMA_PrepareTransfer(&dmaXferConfig, address, nextRxData, handle->bytesPerFrame, nextRxSize, dmaXferType, NULL);
+    dmaXferConfig.xfercfg.reload = true;
     (void)DMA_SubmitPingPongTransfer(handle->rxHandle, &dmaXferConfig, isPing);
 
     if (!handle->isPingpongTransfer)

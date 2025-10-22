@@ -980,10 +980,10 @@ status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t 
     assert(handle->channel < (uint32_t)FSL_FEATURE_DMA_NUMBER_OF_CHANNELSn(handle->base));
 
     /* Previous transfer has not finished */
-    if (DMA_ChannelIsActive(handle->base, handle->channel))
-    {
-        return kStatus_DMA_Busy;
-    }
+    //if (DMA_ChannelIsActive(handle->base, handle->channel))
+    //{
+    //    return kStatus_DMA_Busy;
+    //}
 
     /* enable/disable peripheral request */
     if (config->isPeriph)
