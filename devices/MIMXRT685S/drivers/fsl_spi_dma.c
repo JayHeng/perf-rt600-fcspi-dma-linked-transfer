@@ -635,8 +635,8 @@ static void SPI_TransferCheckTransferDoneDMA(SPI_Type *base, spi_dma_handle_t *s
         {
             SPI_EnableTxDMA(base, false);
             SPI_EnableRxDMA(base, false);
+            spiHandle->state = (uint8_t)kSPI_Idle;
         }
-        spiHandle->state = (uint8_t)kSPI_Idle;
         if (spiHandle->callback != NULL)
         {
             (spiHandle->callback)(base, spiHandle, kStatus_Success, spiHandle->userData);
