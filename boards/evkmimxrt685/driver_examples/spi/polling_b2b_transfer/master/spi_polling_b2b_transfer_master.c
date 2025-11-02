@@ -171,7 +171,7 @@ void test_sync(void)
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 }
 
-static uint8_t masterWriteMemoryImgData_4096[6] = {0x5a, 0xa5, 0x00, 0x10, 0xbf, 0x75 };
+static uint8_t masterWriteMemoryImgData_4096[6] = {0x5a, 0xa5, 0x00, 0x10, 0x32, 0x61 };
 static uint8_t masterWriteMemoryImgData_4000[6] = {0x5a, 0xa5, 0xa0, 0x0f, 0xa2, 0xb2 };
 static uint8_t masterWriteMemoryImgData_2048[6] = {0x5a, 0xa5, 0x00, 0x08, 0x2d, 0x7b };
 static uint8_t masterWriteMemoryImgData_1500[6] = {0x5a, 0xa5, 0xdc, 0x05, 0x65, 0xd1 };
@@ -302,7 +302,7 @@ void test_blhost(void)
     uint32_t loop = 10;
     while (loop--)
     {
-        test_one_packet_data(1024, 500);
+        test_one_packet_data(1024, 300);
     }
 
     while(1);
