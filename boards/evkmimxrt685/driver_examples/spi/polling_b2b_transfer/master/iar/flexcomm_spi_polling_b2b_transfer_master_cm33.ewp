@@ -3778,6 +3778,12 @@
             <name>$PROJ_DIR$\..\mcux_config.h</name>
         </file>
         <file>
+            <name>$PROJ_DIR$\..\microseconds.h</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\microseconds_sysclk.c</name>
+        </file>
+        <file>
             <name>$PROJ_DIR$\..\spi_polling_b2b_transfer_master.c</name>
         </file>
         <file>

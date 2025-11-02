@@ -10,6 +10,7 @@
 #include "board.h"
 #include "app.h"
 #include "fsl_debug_console.h"
+#include "microseconds.h"
 
 /*******************************************************************************
  * Definitions
@@ -54,7 +55,7 @@ static uint8_t masterGetProperty11Resp[18];
 <a7 00 00 02 00 00 00 00 00 02 00 00>
 */
 
-static uint8_t masterWriteMemory[] = {0x5a, 0xa4, 0x10, 0x00, 0x5e, 0x3e, 0x04, 0x01, 0x00, 0x03, 0x00, 0x00, 0x08, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static uint8_t masterWriteMemory[] = {0x5a, 0xa4, 0x10, 0x00, 0xf2, 0x68, 0x04, 0x01, 0x00, 0x03, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t masterWriteMemoryResp[18];
 /*
 <5a>
@@ -64,8 +65,8 @@ static uint8_t masterWriteMemoryResp[18];
 <a0 00 00 02 00 00 00 00 04 00 00 00>
 */
 
-static uint8_t masterWriteMemoryData[0x1000+6] = {0x5a, 0xa5, 0x00, 0x10, 0xd6, 0x4b };
-
+static uint32_t masterWriteMemoryImgHDR[0x10] = { 0 };
+static uint8_t masterWriteMemoryImgData[0x400] = { 0 };
 
 static uint8_t masterSendAck[] = {0x5a, 0xa1};
 
@@ -74,9 +75,27 @@ static uint8_t masterSendAck[] = {0x5a, 0xa1};
  * Code
  ******************************************************************************/
 
-void get_ack(void)
+void fill_image_header(void)
 {
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    masterWriteMemoryImgHDR[0]  = 0x20200000;
+    masterWriteMemoryImgHDR[1]  = 0x00082d09;
+    // image length
+    masterWriteMemoryImgHDR[8]  = 0x00020000;
+    // image type
+    masterWriteMemoryImgHDR[9]  = 0x00000000;
+    // Loader address
+    masterWriteMemoryImgHDR[13] = 0x00080000;
+}
+
+uint8_t s_ackData[100] = {0};
+uint32_t s_ackBytes = 0;
+void get_ack(uint32_t delayUs, bool needToSave)
+{
+    microseconds_delay(delayUs);
+    if (needToSave)
+    {
+        s_ackBytes = 0;
+    }
     spi_transfer_t xfer            = {0};
     destBuff[0] = 0;
     while (destBuff[0] != 0x5A)
@@ -85,7 +104,11 @@ void get_ack(void)
         xfer.rxData      = destBuff;
         xfer.dataSize    = 1;
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-        SDK_DelayAtLeastUs(300, SystemCoreClock);
+        if (needToSave)
+        {
+            s_ackData[s_ackBytes++] = destBuff[0];
+        }
+        microseconds_delay(100);
     }
 
     destBuff[1] = 0;
@@ -95,13 +118,17 @@ void get_ack(void)
         xfer.rxData      = &destBuff[1];
         xfer.dataSize    = 1;
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-        SDK_DelayAtLeastUs(300, SystemCoreClock);
+        if (needToSave)
+        {
+            s_ackData[s_ackBytes++] = destBuff[1];
+        }
+        microseconds_delay(50);
     }
 }
 
-void send_ack(void)
+void send_ack(uint32_t delayUs)
 {
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    SDK_DelayAtLeastUs(delayUs, SystemCoreClock);
     spi_transfer_t xfer            = {0};
     xfer.txData      = masterSendAck;
     xfer.rxData      = destBuff;
@@ -144,40 +171,73 @@ void test_sync(void)
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 }
 
-void test_one_packet_data(void)
+static uint8_t masterWriteMemoryImgData_4096[6] = {0x5a, 0xa5, 0x00, 0x10, 0xbf, 0x75 };
+static uint8_t masterWriteMemoryImgData_4000[6] = {0x5a, 0xa5, 0xa0, 0x0f, 0xa2, 0xb2 };
+static uint8_t masterWriteMemoryImgData_2048[6] = {0x5a, 0xa5, 0x00, 0x08, 0x2d, 0x7b };
+static uint8_t masterWriteMemoryImgData_1500[6] = {0x5a, 0xa5, 0xdc, 0x05, 0x65, 0xd1 };
+static uint8_t masterWriteMemoryImgData_1024[6] = {0x5a, 0xa5, 0x00, 0x04, 0x6f, 0xc0 };
+
+void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
 {
     spi_transfer_t xfer            = {0};
+    assert(packetSize >= 64+8);
 
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
-    xfer.txData      = masterWriteMemoryData;
+    switch(packetSize)
+    {
+        case 4096:
+            xfer.txData      = masterWriteMemoryImgData_4096;
+            break;
+        case 4000:
+            xfer.txData      = masterWriteMemoryImgData_4000;
+            break;
+        case 2048:
+            xfer.txData      = masterWriteMemoryImgData_2048;
+            break;
+        case 1500:
+            xfer.txData      = masterWriteMemoryImgData_1500;
+            break;
+        case 1024:
+            xfer.txData      = masterWriteMemoryImgData_1024;
+            break;
+        default:
+            break;
+    }
     xfer.rxData      = destBuff;
     xfer.dataSize    = 6;
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    xfer.txData      = &masterWriteMemoryData[6];
-    xfer.rxData      = destBuff;
-    memset(&masterWriteMemoryData[6], 0xF1, 1024);
-    xfer.dataSize    = 1024-9;
-    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-    xfer.dataSize    = 1;
-    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-    
-    memset(&masterWriteMemoryData[6], 0xF2, 1024);
-    xfer.dataSize    = 1024;
-    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-    
-    memset(&masterWriteMemoryData[6], 0xF3, 1024);
-    xfer.dataSize    = 1024;
+    xfer.txData      = (uint8_t *)&masterWriteMemoryImgHDR[0];
+    xfer.dataSize    = 64;
+    packetSize      -= 64;
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    memset(&masterWriteMemoryData[6], 0xF4, 1024);
-    xfer.dataSize    = 1024;
-    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+    memset(&masterWriteMemoryImgData[0], 0xF1, 1024);
+    xfer.txData      = &masterWriteMemoryImgData[0];
     
-    xfer.dataSize    = 8;
-    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+    if (packetSize > 1024-64-8)
+    {
+        xfer.dataSize = 1024-64-8;
+        packetSize -= 1024-64-8;
+        SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+    }
+    
+    while(packetSize)
+    {
+        if (packetSize >= 1024)
+        {
+            xfer.dataSize = 1024;
+            packetSize -= 1024;
+        }
+        else
+        {
+            xfer.dataSize = packetSize;
+            packetSize = 0;
+        }
+        SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+    }
 
-    get_ack();
+    get_ack(delayUs, true);
 }
 
 void test_blhost(void)
@@ -191,7 +251,7 @@ void test_blhost(void)
     xfer.dataSize    = sizeof(masterGetProperty1);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack();
+    get_ack(20000, false);
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
     xfer.txData      = srcBuff;
@@ -199,7 +259,7 @@ void test_blhost(void)
     xfer.dataSize    = sizeof(masterGetProperty1Resp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    send_ack();
+    send_ack(20000);
     
     /////////////////////////////////////////////////////////
     
@@ -210,7 +270,7 @@ void test_blhost(void)
     xfer.dataSize    = sizeof(masterGetProperty11);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack();
+    get_ack(20000, false);
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
     xfer.txData      = srcBuff;
@@ -218,7 +278,7 @@ void test_blhost(void)
     xfer.dataSize    = sizeof(masterGetProperty11Resp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    send_ack();
+    send_ack(20000);
 
     //////////////////////////////////////////////////////////    
     
@@ -228,7 +288,7 @@ void test_blhost(void)
     xfer.dataSize    = sizeof(masterWriteMemory);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    get_ack();
+    get_ack(20000, false);
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
     xfer.txData      = srcBuff;
@@ -236,11 +296,14 @@ void test_blhost(void)
     xfer.dataSize    = sizeof(masterWriteMemoryResp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    send_ack();
+    send_ack(20000);
     
-    test_one_packet_data();
-    test_one_packet_data();
-    test_one_packet_data();
+    fill_image_header();
+    uint32_t loop = 10;
+    while (loop--)
+    {
+        test_one_packet_data(1024, 500);
+    }
 
     while(1);
 }
@@ -254,6 +317,7 @@ int main(void)
     spi_transfer_t xfer            = {0};
 
     BOARD_InitHardware();
+    microseconds_init();
     PRINTF("\n\rMaster Start...\n\r");
     /*
      * userConfig.enableLoopback = false;
