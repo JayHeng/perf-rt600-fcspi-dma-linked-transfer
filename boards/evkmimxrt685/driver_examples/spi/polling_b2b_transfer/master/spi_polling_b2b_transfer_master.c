@@ -23,7 +23,7 @@
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-#define BUFFER_SIZE (4096)
+#define BUFFER_SIZE (65536)
 static uint8_t srcBuff[BUFFER_SIZE];
 static uint8_t destBuff[BUFFER_SIZE];
 
@@ -55,7 +55,7 @@ static uint8_t masterGetProperty11Resp[18];
 <a7 00 00 02 00 00 00 00 00 02 00 00>
 */
 
-static uint8_t masterWriteMemory[] = {0x5a, 0xa4, 0x10, 0x00, 0xf2, 0x68, 0x04, 0x01, 0x00, 0x03, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+static uint8_t masterWriteMemory[] = {0x5a, 0xa4, 0x10, 0x00, 0xf0, 0xee, 0x04, 0x01, 0x00, 0x03, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t masterWriteMemoryResp[18];
 /*
 <5a>
@@ -66,7 +66,7 @@ static uint8_t masterWriteMemoryResp[18];
 */
 
 static uint32_t masterWriteMemoryImgHDR[0x10] = { 0 };
-static uint8_t masterWriteMemoryImgData[0x400] = { 0 };
+static uint8_t masterWriteMemoryImgData[BUFFER_SIZE] = { 0 };
 
 static uint8_t masterSendAck[] = {0x5a, 0xa1};
 
@@ -79,51 +79,56 @@ void fill_image_header(void)
 {
     masterWriteMemoryImgHDR[0]  = 0x20200000;
     masterWriteMemoryImgHDR[1]  = 0x00082d09;
-    // image length
-    masterWriteMemoryImgHDR[8]  = 0x00020000;
+    // image length - 64KB * 8
+    masterWriteMemoryImgHDR[8]  = 0x00080000;
     // image type
     masterWriteMemoryImgHDR[9]  = 0x00000000;
     // Loader address
     masterWriteMemoryImgHDR[13] = 0x00080000;
+    
+    memset(&masterWriteMemoryImgData[0], 0xF1, sizeof(masterWriteMemoryImgData));
 }
 
-uint8_t s_ackData[100] = {0};
-uint32_t s_ackBytes = 0;
-void get_ack(uint32_t delayUs, bool needToSave)
+void get_ack(uint32_t delayUs)
 {
+    uint32_t totalDelayCnt0 = 0;
+    uint32_t totalDelayCnt1 = 0;
     microseconds_delay(delayUs);
-    if (needToSave)
-    {
-        s_ackBytes = 0;
-    }
-    spi_transfer_t xfer            = {0};
     destBuff[0] = 0;
+    spi_transfer_t xfer            = {0};
+    xfer.txData      = srcBuff;
+    xfer.rxData      = destBuff;
+    xfer.dataSize    = 1;
+    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     while (destBuff[0] != 0x5A)
     {
-        xfer.txData      = srcBuff;
-        xfer.rxData      = destBuff;
-        xfer.dataSize    = 1;
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-        if (needToSave)
-        {
-            s_ackData[s_ackBytes++] = destBuff[0];
-        }
         microseconds_delay(100);
+        totalDelayCnt0++;
     }
 
     destBuff[1] = 0;
+    xfer.rxData      = &destBuff[1];
+    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     while (destBuff[1] != 0xA1)
     {
-        xfer.txData      = srcBuff;
-        xfer.rxData      = &destBuff[1];
-        xfer.dataSize    = 1;
-        SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-        if (needToSave)
+        switch (destBuff[1])
         {
-            s_ackData[s_ackBytes++] = destBuff[1];
+            case 0xA2:
+                PRINTF("\n\rGot Nak after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+                return;
+            case 0xA3:
+                PRINTF("\n\rGot AckAbort after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+                return;
+            default:
+                break;
         }
+        SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
         microseconds_delay(50);
+        totalDelayCnt1++;
     }
+    
+    PRINTF("\n\rGot Ack after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
 }
 
 void send_ack(uint32_t delayUs)
@@ -134,6 +139,8 @@ void send_ack(uint32_t delayUs)
     xfer.rxData      = destBuff;
     xfer.dataSize    = 2;
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+    
+    PRINTF("\n\rSent Ack\n\r");
 }
 
 void test_sync(void)
@@ -169,13 +176,21 @@ void test_sync(void)
     xfer.rxData      = &masterSyncResp[2];
     xfer.dataSize    = sizeof(masterSyncResp) - 2;
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+    
+    PRINTF("\n\rSync packet done\n\r");
 }
 
-static uint8_t masterWriteMemoryImgData_4096[6] = {0x5a, 0xa5, 0x00, 0x10, 0x32, 0x61 };
-static uint8_t masterWriteMemoryImgData_4000[6] = {0x5a, 0xa5, 0xa0, 0x0f, 0xa2, 0xb2 };
-static uint8_t masterWriteMemoryImgData_2048[6] = {0x5a, 0xa5, 0x00, 0x08, 0x2d, 0x7b };
-static uint8_t masterWriteMemoryImgData_1500[6] = {0x5a, 0xa5, 0xdc, 0x05, 0x65, 0xd1 };
-static uint8_t masterWriteMemoryImgData_1024[6] = {0x5a, 0xa5, 0x00, 0x04, 0x6f, 0xc0 };
+static uint8_t masterWriteMemoryImgData_65535[6] = {0x5a, 0xa5, 0xff, 0xff, 0xa3, 0x09 };
+static uint8_t masterWriteMemoryImgData_64512[6] = {0x5a, 0xa5, 0x00, 0xfc, 0xc4, 0x27 };
+static uint8_t masterWriteMemoryImgData_32768[6] = {0x5a, 0xa5, 0x00, 0x80, 0xb8, 0x2e };
+static uint8_t masterWriteMemoryImgData_16384[6] = {0x5a, 0xa5, 0x00, 0x40, 0x8c, 0x6e };
+static uint8_t masterWriteMemoryImgData_8192[6]  = {0x5a, 0xa5, 0x00, 0x20, 0x52, 0x38 };
+static uint8_t masterWriteMemoryImgData_4096[6]  = {0x5a, 0xa5, 0x00, 0x10, 0xff, 0x8e };
+static uint8_t masterWriteMemoryImgData_4000[6]  = {0x5a, 0xa5, 0xa0, 0x0f, 0xcb, 0x44 };
+static uint8_t masterWriteMemoryImgData_2048[6]  = {0x5a, 0xa5, 0x00, 0x08, 0x73, 0xf8 };
+static uint8_t masterWriteMemoryImgData_1500[6]  = {0x5a, 0xa5, 0xdc, 0x05, 0xbd, 0xee };
+static uint8_t masterWriteMemoryImgData_1024[6]  = {0x5a, 0xa5, 0x00, 0x04, 0x78, 0xff };
+static uint8_t masterWriteMemoryImgData_1016[6]  = {0x5a, 0xa5, 0xf8, 0x03, 0x88, 0x81 };
 
 void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
 {
@@ -183,8 +198,24 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
     assert(packetSize >= 64+8);
 
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    PRINTF("\n\rSending one packet data (%d)\n\r", packetSize);
     switch(packetSize)
     {
+        case 65535:
+            xfer.txData      = masterWriteMemoryImgData_65535;
+            break;
+        case 64512:
+            xfer.txData      = masterWriteMemoryImgData_64512;
+            break;
+        case 32768:
+            xfer.txData      = masterWriteMemoryImgData_32768;
+            break;
+        case 16384:
+            xfer.txData      = masterWriteMemoryImgData_16384;
+            break;
+        case 8192:
+            xfer.txData      = masterWriteMemoryImgData_8192;
+            break;
         case 4096:
             xfer.txData      = masterWriteMemoryImgData_4096;
             break;
@@ -200,6 +231,9 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
         case 1024:
             xfer.txData      = masterWriteMemoryImgData_1024;
             break;
+        case 1016:
+            xfer.txData      = masterWriteMemoryImgData_1016;
+            break;
         default:
             break;
     }
@@ -212,9 +246,11 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
     packetSize      -= 64;
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    memset(&masterWriteMemoryImgData[0], 0xF1, 1024);
     xfer.txData      = &masterWriteMemoryImgData[0];
-    
+#if 1
+    xfer.dataSize = packetSize;
+    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+#else
     if (packetSize > 1024-64-8)
     {
         xfer.dataSize = 1024-64-8;
@@ -236,24 +272,29 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
         }
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     }
+#endif
 
-    get_ack(delayUs, true);
+    get_ack(delayUs);
 }
 
 void test_blhost(void)
 {
+    fill_image_header();
+
     spi_transfer_t xfer            = {0};
     
     test_sync();
-
+    PRINTF("\n\rSending get-property 1\n\r");
     xfer.txData      = masterGetProperty1;
     xfer.rxData      = destBuff;
     xfer.dataSize    = sizeof(masterGetProperty1);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack(20000, false);
+    get_ack(20000);
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    
+    PRINTF("\n\rReceiving get-property 1 resp\n\r");
     xfer.txData      = srcBuff;
     xfer.rxData      = masterGetProperty1Resp;
     xfer.dataSize    = sizeof(masterGetProperty1Resp);
@@ -264,15 +305,16 @@ void test_blhost(void)
     /////////////////////////////////////////////////////////
     
     test_sync();
-
+    PRINTF("\n\rSending get-property 11\n\r");
     xfer.txData      = masterGetProperty11;
     xfer.rxData      = destBuff;
     xfer.dataSize    = sizeof(masterGetProperty11);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack(20000, false);
+    get_ack(20000);
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    PRINTF("\n\rReceiving get-property 11 resp\n\r");
     xfer.txData      = srcBuff;
     xfer.rxData      = masterGetProperty11Resp;
     xfer.dataSize    = sizeof(masterGetProperty11Resp);
@@ -283,26 +325,37 @@ void test_blhost(void)
     //////////////////////////////////////////////////////////    
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    PRINTF("\n\rSending write memory\n\r");
     xfer.txData      = masterWriteMemory;
     xfer.rxData      = destBuff;
     xfer.dataSize    = sizeof(masterWriteMemory);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    get_ack(20000, false);
+    get_ack(20000);
     
     SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    PRINTF("\n\rReceiving write memory resp\n\r");
     xfer.txData      = srcBuff;
     xfer.rxData      = masterWriteMemoryResp;
     xfer.dataSize    = sizeof(masterWriteMemoryResp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
     send_ack(20000);
-    
-    fill_image_header();
-    uint32_t loop = 10;
+
+    uint32_t loop = 2;
     while (loop--)
     {
+        test_one_packet_data(1016, 300);
         test_one_packet_data(1024, 300);
+        test_one_packet_data(1500, 300);
+        test_one_packet_data(2048, 300);
+        test_one_packet_data(4000, 300);
+        test_one_packet_data(4096, 300);
+        test_one_packet_data(8192, 300);
+        test_one_packet_data(16384, 300);
+        test_one_packet_data(32768, 300);
+        test_one_packet_data(64512, 300);
+        test_one_packet_data(65535, 300);
     }
 
     while(1);
