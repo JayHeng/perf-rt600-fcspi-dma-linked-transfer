@@ -343,19 +343,24 @@ void test_blhost(void)
     send_ack(20000);
 
     uint32_t loop = 2;
+    // >300us for 500KHz
+    // >400us for 5MHz
+    // >400us for 20MHz
+    // >400us for 30MHz
+    uint32_t delay = 400;
     while (loop--)
     {
-        test_one_packet_data(1016, 300);
-        test_one_packet_data(1024, 300);
-        test_one_packet_data(1500, 300);
-        test_one_packet_data(2048, 300);
-        test_one_packet_data(4000, 300);
-        test_one_packet_data(4096, 300);
-        test_one_packet_data(8192, 300);
-        test_one_packet_data(16384, 300);
-        test_one_packet_data(32768, 300);
-        test_one_packet_data(64512, 300);
-        test_one_packet_data(65535, 300);
+        test_one_packet_data(1016, delay);
+        test_one_packet_data(1024, delay);
+        test_one_packet_data(1500, delay);
+        test_one_packet_data(2048, delay);
+        test_one_packet_data(4000, delay);
+        test_one_packet_data(4096, delay);
+        test_one_packet_data(8192, delay);
+        test_one_packet_data(16384, delay);
+        test_one_packet_data(32768, delay);
+        test_one_packet_data(64512, delay);
+        test_one_packet_data(65535, delay);
     }
 
     while(1);
@@ -381,6 +386,7 @@ int main(void)
      * userConfig.baudRate_Bps = 500000U;
      */
     SPI_MasterGetDefaultConfig(&userConfig);
+    userConfig.baudRate_Bps = 30000000U;
     
     userConfig.polarity = kSPI_ClockPolarityActiveLow;
     userConfig.phase = kSPI_ClockPhaseSecondEdge;
@@ -390,7 +396,8 @@ int main(void)
     userConfig.sselPol = (spi_spol_t)EXAMPLE_SPI_SPOL;
     SPI_MasterInit(EXAMPLE_SPI_MASTER, &userConfig, srcFreq);
     
-    
+    PRINTF("\n\rSPI Clock freq = %dHz...\n\r", userConfig.baudRate_Bps);
+
     test_blhost();
 
     /* Init Buffer*/
