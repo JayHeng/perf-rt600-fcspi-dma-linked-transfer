@@ -24,7 +24,7 @@
  * Variables
  ******************************************************************************/
 #define BUFFER_SIZE (65536)
-#define MASTER_TX_FREQ (48000000)
+#define MASTER_TX_FREQ (24000000)
 #define MASTER_RX_FREQ (24000000)
 
 static uint8_t srcBuff[BUFFER_SIZE];
@@ -78,32 +78,15 @@ static uint8_t masterSendAck[] = {0x5a, 0xa1};
  * Code
  ******************************************************************************/
 
-void init_fcspi(uint32_t baudrate)
+status_t config_fcspi_speed(uint32_t baud)
 {
-    SPI_Deinit(EXAMPLE_SPI_MASTER);
-  
-    spi_master_config_t userConfig = {0};
-    uint32_t srcFreq               = 0;
-    /*
-     * userConfig.enableLoopback = false;
-     * userConfig.enableMaster = true;
-     * userConfig.polarity = kSPI_ClockPolarityActiveHigh;
-     * userConfig.phase = kSPI_ClockPhaseFirstEdge;
-     * userConfig.direction = kSPI_MsbFirst;
-     * userConfig.baudRate_Bps = 500000U;
-     */
-    SPI_MasterGetDefaultConfig(&userConfig);
-    userConfig.baudRate_Bps = baudrate;
-    
-    userConfig.polarity = kSPI_ClockPolarityActiveLow;
-    userConfig.phase = kSPI_ClockPhaseSecondEdge;
-    
-    srcFreq            = EXAMPLE_SPI_MASTER_CLK_FREQ;
-    userConfig.sselNum = (spi_ssel_t)EXAMPLE_SPI_SSEL;
-    userConfig.sselPol = (spi_spol_t)EXAMPLE_SPI_SPOL;
-    SPI_MasterInit(EXAMPLE_SPI_MASTER, &userConfig, srcFreq);
-    
-    //PRINTF("\n\rSPI Clock freq = %dHz...\n\r", userConfig.baudRate_Bps);
+    status_t result = kStatus_Success;
+    //result = SPI_MasterSetBaud(EXAMPLE_SPI_MASTER, baud, EXAMPLE_SPI_MASTER_CLK_FREQ);
+    if (kStatus_Success != result)
+    {
+        PRINTF("\n\rCannot set Spi baudrate %d\n\r", baud);
+    }
+    return result;
 }
 
 void fill_image_header(void)
@@ -122,7 +105,7 @@ void fill_image_header(void)
 
 void get_ack(uint32_t delayUs, bool isFuncTest)
 {
-    init_fcspi(MASTER_RX_FREQ);
+    config_fcspi_speed(MASTER_RX_FREQ);
 
     uint32_t totalDelayCnt0 = 0;
     uint32_t totalDelayCnt1 = 0;
@@ -237,7 +220,7 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs, bool isFuncTest
 {
     spi_transfer_t xfer            = {0};
     assert(packetSize >= 64+8);
-    init_fcspi(MASTER_TX_FREQ);
+    config_fcspi_speed(MASTER_TX_FREQ);
 
     microseconds_delay(delayUs);
     if (isFuncTest)
@@ -327,7 +310,7 @@ void test_blhost(bool isFuncTest)
 {
     uint32_t cmdDelay = 350;
 
-    init_fcspi(MASTER_RX_FREQ);
+    config_fcspi_speed(MASTER_RX_FREQ);
 
     fill_image_header();
 
@@ -456,6 +439,8 @@ void test_blhost(bool isFuncTest)
 
 int main(void)
 {
+    spi_master_config_t userConfig = {0};
+    uint32_t srcFreq               = 0;
     uint32_t i                     = 0;
     uint32_t err                   = 0;
     spi_transfer_t xfer            = {0};
@@ -463,6 +448,26 @@ int main(void)
     BOARD_InitHardware();
     microseconds_init();
     PRINTF("\n\rMaster Start...\n\r");
+    /*
+     * userConfig.enableLoopback = false;
+     * userConfig.enableMaster = true;
+     * userConfig.polarity = kSPI_ClockPolarityActiveHigh;
+     * userConfig.phase = kSPI_ClockPhaseFirstEdge;
+     * userConfig.direction = kSPI_MsbFirst;
+     * userConfig.baudRate_Bps = 500000U;
+     */
+    SPI_MasterGetDefaultConfig(&userConfig);
+    userConfig.baudRate_Bps = MASTER_RX_FREQ;
+    
+    userConfig.polarity = kSPI_ClockPolarityActiveLow;
+    userConfig.phase = kSPI_ClockPhaseSecondEdge;
+    
+    srcFreq            = EXAMPLE_SPI_MASTER_CLK_FREQ;
+    userConfig.sselNum = (spi_ssel_t)EXAMPLE_SPI_SSEL;
+    userConfig.sselPol = (spi_spol_t)EXAMPLE_SPI_SPOL;
+    SPI_MasterInit(EXAMPLE_SPI_MASTER, &userConfig, srcFreq);
+    
+    PRINTF("\n\rInitial SPI Clock freq = %dHz...\n\r", userConfig.baudRate_Bps);
 
     test_blhost(false);
 
