@@ -89,7 +89,7 @@ void fill_image_header(void)
     memset(&masterWriteMemoryImgData[0], 0xF1, sizeof(masterWriteMemoryImgData));
 }
 
-void get_ack(uint32_t delayUs)
+void get_ack(uint32_t delayUs, bool isFuncTest)
 {
     uint32_t totalDelayCnt0 = 0;
     uint32_t totalDelayCnt1 = 0;
@@ -127,23 +127,31 @@ void get_ack(uint32_t delayUs)
         microseconds_delay(50);
         totalDelayCnt1++;
     }
-    
-    PRINTF("\n\rGot Ack after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+    if (totalDelayCnt0 || totalDelayCnt1 || isFuncTest)
+    {
+        // It costs about 3.5ms
+        PRINTF("\n\rGot Ack after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+    }
 }
 
-void send_ack(uint32_t delayUs)
+void send_ack(uint32_t delayUs, bool isFuncTest)
 {
-    SDK_DelayAtLeastUs(delayUs, SystemCoreClock);
+    microseconds_delay(delayUs);
     spi_transfer_t xfer            = {0};
     xfer.txData      = masterSendAck;
     xfer.rxData      = destBuff;
     xfer.dataSize    = 2;
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
+
+    if (isFuncTest)
+    {
+        // It costs about 8ms
+        PRINTF("\n\rSent Ack\n\r");
+    }
     
-    PRINTF("\n\rSent Ack\n\r");
 }
 
-void test_sync(void)
+void test_sync(uint32_t delayUs)
 {
     spi_transfer_t xfer            = {0};
 
@@ -152,7 +160,8 @@ void test_sync(void)
     xfer.dataSize    = sizeof(masterSync);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
+    microseconds_delay(delayUs);
+
     masterSyncResp[0] = 0x0;
     while (masterSyncResp[0] != 0x5A)
     {
@@ -160,7 +169,7 @@ void test_sync(void)
         xfer.rxData      = masterSyncResp;
         xfer.dataSize    = 1;
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-        SDK_DelayAtLeastUs(1000, SystemCoreClock);
+        microseconds_delay(delayUs);
     }
     masterSyncResp[1] = 0x0;
     while (masterSyncResp[1] != 0xA7)
@@ -169,7 +178,7 @@ void test_sync(void)
         xfer.rxData      = &masterSyncResp[1];
         xfer.dataSize    = 1;
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-        SDK_DelayAtLeastUs(1000, SystemCoreClock);
+        microseconds_delay(delayUs);
     }
     
     xfer.txData      = srcBuff;
@@ -192,13 +201,17 @@ static uint8_t masterWriteMemoryImgData_1500[6]  = {0x5a, 0xa5, 0xdc, 0x05, 0xbd
 static uint8_t masterWriteMemoryImgData_1024[6]  = {0x5a, 0xa5, 0x00, 0x04, 0x78, 0xff };
 static uint8_t masterWriteMemoryImgData_1016[6]  = {0x5a, 0xa5, 0xf8, 0x03, 0x88, 0x81 };
 
-void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
+void test_one_packet_data(uint32_t packetSize, uint32_t delayUs, bool isFuncTest)
 {
     spi_transfer_t xfer            = {0};
     assert(packetSize >= 64+8);
 
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
-    PRINTF("\n\rSending one packet data (%d)\n\r", packetSize);
+    microseconds_delay(delayUs);
+    if (isFuncTest)
+    {
+        // It costs about 3.5ms
+        PRINTF("\n\rSending one packet data (%d)\n\r", packetSize);
+    }
     switch(packetSize)
     {
         case 65535:
@@ -274,93 +287,133 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs)
     }
 #endif
 
-    get_ack(delayUs);
+    get_ack(delayUs, isFuncTest);
 }
 
-void test_blhost(void)
+void test_blhost(bool isFuncTest)
 {
+    uint32_t cmdDelay = 350;
     fill_image_header();
 
+    test_sync(cmdDelay);
+
     spi_transfer_t xfer            = {0};
-    
-    test_sync();
-    PRINTF("\n\rSending get-property 1\n\r");
+
+    if (isFuncTest)
+    {
+        PRINTF("\n\rSending get-property 1\n\r");
+    }
+    else
+    {
+        microseconds_delay(cmdDelay);
+    }
     xfer.txData      = masterGetProperty1;
     xfer.rxData      = destBuff;
     xfer.dataSize    = sizeof(masterGetProperty1);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack(20000);
+    get_ack(cmdDelay, isFuncTest);
     
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
-    
-    PRINTF("\n\rReceiving get-property 1 resp\n\r");
+    if (isFuncTest)
+    {
+        PRINTF("\n\rReceiving get-property 1 resp\n\r");
+    }
+    else
+    {
+        microseconds_delay(cmdDelay);
+    }
     xfer.txData      = srcBuff;
     xfer.rxData      = masterGetProperty1Resp;
     xfer.dataSize    = sizeof(masterGetProperty1Resp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    send_ack(20000);
+    send_ack(cmdDelay, isFuncTest);
     
     /////////////////////////////////////////////////////////
     
-    test_sync();
-    PRINTF("\n\rSending get-property 11\n\r");
+    test_sync(cmdDelay);
+
+    if (isFuncTest)
+    {
+        PRINTF("\n\rSending get-property 11\n\r");
+    }
+    else
+    {
+        microseconds_delay(cmdDelay);
+    }
     xfer.txData      = masterGetProperty11;
     xfer.rxData      = destBuff;
     xfer.dataSize    = sizeof(masterGetProperty11);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack(20000);
+    get_ack(cmdDelay, isFuncTest);
     
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
-    PRINTF("\n\rReceiving get-property 11 resp\n\r");
+    if (isFuncTest)
+    {
+        PRINTF("\n\rReceiving get-property 11 resp\n\r");
+    }
+    else
+    {
+        microseconds_delay(cmdDelay);
+    }
     xfer.txData      = srcBuff;
     xfer.rxData      = masterGetProperty11Resp;
     xfer.dataSize    = sizeof(masterGetProperty11Resp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    send_ack(20000);
+    send_ack(cmdDelay, isFuncTest);
 
     //////////////////////////////////////////////////////////    
-    
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
-    PRINTF("\n\rSending write memory\n\r");
+
+    if (isFuncTest)
+    {
+        PRINTF("\n\rSending write memory\n\r");
+    }
+    else
+    {
+        microseconds_delay(cmdDelay);
+    }
     xfer.txData      = masterWriteMemory;
     xfer.rxData      = destBuff;
     xfer.dataSize    = sizeof(masterWriteMemory);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    get_ack(20000);
+    get_ack(cmdDelay, isFuncTest);
     
-    SDK_DelayAtLeastUs(20000, SystemCoreClock);
-    PRINTF("\n\rReceiving write memory resp\n\r");
+    if (isFuncTest)
+    {
+        PRINTF("\n\rReceiving write memory resp\n\r");
+    }
+    else
+    {
+        microseconds_delay(cmdDelay);
+    }
     xfer.txData      = srcBuff;
     xfer.rxData      = masterWriteMemoryResp;
     xfer.dataSize    = sizeof(masterWriteMemoryResp);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    send_ack(20000);
+    send_ack(cmdDelay, isFuncTest);
 
     uint32_t loop = 2;
-    // >300us for 500KHz
-    // >400us for 5MHz
-    // >400us for 20MHz
-    // >400us for 30MHz
-    uint32_t delay = 400;
+    // >=250us for 500KHz (240us failed)
+    // >=350us for 5-32MHz (340us failed)
+    uint32_t pktDelay = 350;
+    assert(cmdDelay >= pktDelay);
     while (loop--)
     {
-        test_one_packet_data(1016, delay);
-        test_one_packet_data(1024, delay);
-        test_one_packet_data(1500, delay);
-        test_one_packet_data(2048, delay);
-        test_one_packet_data(4000, delay);
-        test_one_packet_data(4096, delay);
-        test_one_packet_data(8192, delay);
-        test_one_packet_data(16384, delay);
-        test_one_packet_data(32768, delay);
-        test_one_packet_data(64512, delay);
-        test_one_packet_data(65535, delay);
+        test_one_packet_data(1016, pktDelay, isFuncTest);
+        test_one_packet_data(1024, pktDelay, isFuncTest);
+        test_one_packet_data(1500, pktDelay, isFuncTest);
+        test_one_packet_data(2048, pktDelay, isFuncTest);
+        test_one_packet_data(4000, pktDelay, isFuncTest);
+        test_one_packet_data(4096, pktDelay, isFuncTest);
+        test_one_packet_data(8192, pktDelay, isFuncTest);
+        test_one_packet_data(16384, pktDelay, isFuncTest);
+        test_one_packet_data(32768, pktDelay, isFuncTest);
+        test_one_packet_data(64512, pktDelay, isFuncTest);
+        test_one_packet_data(65535, pktDelay, isFuncTest);
+        __NOP();
     }
 
     while(1);
@@ -386,7 +439,7 @@ int main(void)
      * userConfig.baudRate_Bps = 500000U;
      */
     SPI_MasterGetDefaultConfig(&userConfig);
-    userConfig.baudRate_Bps = 30000000U;
+    userConfig.baudRate_Bps = 32000000U;
     
     userConfig.polarity = kSPI_ClockPolarityActiveLow;
     userConfig.phase = kSPI_ClockPhaseSecondEdge;
@@ -398,7 +451,7 @@ int main(void)
     
     PRINTF("\n\rSPI Clock freq = %dHz...\n\r", userConfig.baudRate_Bps);
 
-    test_blhost();
+    test_blhost(false);
 
     /* Init Buffer*/
     for (i = 0; i < BUFFER_SIZE; i++)
