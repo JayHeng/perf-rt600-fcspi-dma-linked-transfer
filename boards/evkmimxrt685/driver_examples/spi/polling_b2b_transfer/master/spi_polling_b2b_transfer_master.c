@@ -24,7 +24,7 @@
  * Variables
  ******************************************************************************/
 #define BUFFER_SIZE (65536)
-#define MASTER_TX_FREQ (24000000)
+#define MASTER_TX_FREQ (23000000)
 #define MASTER_RX_FREQ (12000000)
 
 static uint8_t srcBuff[BUFFER_SIZE];
@@ -308,7 +308,7 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs, bool isFuncTest
 
 void test_blhost(bool isFuncTest)
 {
-    uint32_t cmdDelay = 600;
+    uint32_t cmdDelay = 400;
 
     config_fcspi_speed(MASTER_RX_FREQ);
 
@@ -418,7 +418,7 @@ void test_blhost(bool isFuncTest)
     // >=250us for 500KHz (240us failed)
     // >=350us for 4-16MHz (340us failed)
     // >=350us for 4-16MHz (340us failed)
-    uint32_t pktDelay = 500;
+    uint32_t pktDelay = 400;
     while (loop--)
     {
         test_one_packet_data(1016, pktDelay, isFuncTest);
