@@ -192,7 +192,7 @@ void BOARD_BootClockRUN(void)
     CLOCK_AttachClk(kMAIN_PLL_to_MAIN_CLK); /* Switch MAIN_CLK to MAIN_PLL */
 
     /* Set up dividers */
-    CLOCK_SetClkDiv(kCLOCK_DivAudioPllClk, 15U); /* Set AUDIOPLLCLKDIV divider to value 15 */
+    CLOCK_SetClkDiv(kCLOCK_DivAudioPllClk, 1U); /* Set AUDIOPLLCLKDIV divider to value 1 */
     CLOCK_SetClkDiv(kCLOCK_DivPfc0Clk, 2U);      /* Set PFC0DIV divider to value 2 */
     CLOCK_SetClkDiv(kCLOCK_DivPllFrgClk, 12U);   /* Set FRGPLLCLKDIV divider to value 12 */
 

@@ -16,7 +16,7 @@
 /*${function:start}*/
 void BOARD_InitHardware(void)
 {
-    CLOCK_AttachClk(kFFRO_to_FLEXCOMM14);
+    CLOCK_AttachClk(kAUDIO_PLL_to_FLEXCOMM14);
 
     BOARD_InitBootPins();
     BOARD_InitBootClocks();

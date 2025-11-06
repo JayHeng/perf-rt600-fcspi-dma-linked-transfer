@@ -25,7 +25,7 @@
  ******************************************************************************/
 #define BUFFER_SIZE (65536)
 #define MASTER_TX_FREQ (24000000)
-#define MASTER_RX_FREQ (24000000)
+#define MASTER_RX_FREQ (12000000)
 
 static uint8_t srcBuff[BUFFER_SIZE];
 static uint8_t destBuff[BUFFER_SIZE];
@@ -81,10 +81,10 @@ static uint8_t masterSendAck[] = {0x5a, 0xa1};
 status_t config_fcspi_speed(uint32_t baud)
 {
     status_t result = kStatus_Success;
-    //result = SPI_MasterSetBaud(EXAMPLE_SPI_MASTER, baud, EXAMPLE_SPI_MASTER_CLK_FREQ);
+    result = SPI_MasterSetBaud(EXAMPLE_SPI_MASTER, baud, EXAMPLE_SPI_MASTER_CLK_FREQ);
     if (kStatus_Success != result)
     {
-        PRINTF("\n\rCannot set Spi baudrate %d\n\r", baud);
+        PRINTF("\n\rCannot set SPI baudrate %d\n\r", baud);
     }
     return result;
 }
@@ -308,7 +308,7 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs, bool isFuncTest
 
 void test_blhost(bool isFuncTest)
 {
-    uint32_t cmdDelay = 350;
+    uint32_t cmdDelay = 600;
 
     config_fcspi_speed(MASTER_RX_FREQ);
 
@@ -416,8 +416,9 @@ void test_blhost(bool isFuncTest)
 
     uint32_t loop = 2;
     // >=250us for 500KHz (240us failed)
-    // >=350us for 5-32MHz (340us failed)
-    uint32_t pktDelay = 350;
+    // >=350us for 4-16MHz (340us failed)
+    // >=350us for 4-16MHz (340us failed)
+    uint32_t pktDelay = 500;
     while (loop--)
     {
         test_one_packet_data(1016, pktDelay, isFuncTest);
@@ -465,8 +466,12 @@ int main(void)
     srcFreq            = EXAMPLE_SPI_MASTER_CLK_FREQ;
     userConfig.sselNum = (spi_ssel_t)EXAMPLE_SPI_SSEL;
     userConfig.sselPol = (spi_spol_t)EXAMPLE_SPI_SPOL;
-    SPI_MasterInit(EXAMPLE_SPI_MASTER, &userConfig, srcFreq);
-    
+    status_t result = SPI_MasterInit(EXAMPLE_SPI_MASTER, &userConfig, srcFreq);
+    if (kStatus_Success != result)
+    {
+        PRINTF("\n\rCannot init SPI module %d\n\r");
+        while (1);
+    }
     PRINTF("\n\rInitial SPI Clock freq = %dHz...\n\r", userConfig.baudRate_Bps);
 
     test_blhost(false);
