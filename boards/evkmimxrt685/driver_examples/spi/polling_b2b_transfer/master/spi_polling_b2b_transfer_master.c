@@ -24,7 +24,7 @@
  * Variables
  ******************************************************************************/
 #define BUFFER_SIZE (65536)
-#define MASTER_TX_FREQ (23000000)
+#define MASTER_TX_FREQ (43000000)
 #define MASTER_RX_FREQ (12000000)
 
 static uint8_t srcBuff[BUFFER_SIZE];
@@ -103,9 +103,10 @@ void fill_image_header(void)
     memset(&masterWriteMemoryImgData[0], 0xF1, sizeof(masterWriteMemoryImgData));
 }
 
-void get_ack(uint32_t delayUs, bool isFuncTest)
+void get_ack(uint32_t delayUs, bool isFuncTest, uint32_t pktSize)
 {
     config_fcspi_speed(MASTER_RX_FREQ);
+    uint32_t retryCnt = 200;
 
     uint32_t totalDelayCnt0 = 0;
     uint32_t totalDelayCnt1 = 0;
@@ -121,7 +122,13 @@ void get_ack(uint32_t delayUs, bool isFuncTest)
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
         microseconds_delay(100);
         totalDelayCnt0++;
+        if (totalDelayCnt0 == retryCnt)
+        {
+            break;
+        }
     }
+
+    microseconds_delay(150);
 
     destBuff[1] = 0;
     xfer.rxData      = &destBuff[1];
@@ -131,10 +138,10 @@ void get_ack(uint32_t delayUs, bool isFuncTest)
         switch (destBuff[1])
         {
             case 0xA2:
-                PRINTF("\n\rGot Nak after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+                PRINTF("\n\rGot Nak after delay %dus+%d*100us+150us+%d*50us for packet %d\n\r", delayUs, totalDelayCnt0, totalDelayCnt1, pktSize);
                 return;
             case 0xA3:
-                PRINTF("\n\rGot AckAbort after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+                PRINTF("\n\rGot AckAbort after delay %dus+%d*100us+150us+%d*50us for packet %d\n\r", delayUs, totalDelayCnt0, totalDelayCnt1, pktSize);
                 return;
             default:
                 break;
@@ -142,11 +149,19 @@ void get_ack(uint32_t delayUs, bool isFuncTest)
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
         microseconds_delay(50);
         totalDelayCnt1++;
+        if (totalDelayCnt1 == retryCnt)
+        {
+            break;
+        }
     }
-    if (totalDelayCnt0 || totalDelayCnt1 || isFuncTest)
+    if (totalDelayCnt0 + totalDelayCnt1 == retryCnt * 2)
+    {
+        PRINTF("\n\rGot Nothing after delay %dus+%d*100us+150us+%d*50us for packet %d\n\r", delayUs, totalDelayCnt0, totalDelayCnt1, pktSize);
+    }
+    else if (totalDelayCnt0 || totalDelayCnt1 || isFuncTest)
     {
         // It costs about 3.5ms
-        PRINTF("\n\rGot Ack after delay %dus,%d*100us,%d*50us\n\r", delayUs, totalDelayCnt0, totalDelayCnt1);
+        PRINTF("\n\rGot Ack after delay %dus+%d*100us+150us+%d*50us for packet %d\n\r", delayUs, totalDelayCnt0, totalDelayCnt1, pktSize);
     }
 }
 
@@ -186,6 +201,7 @@ void test_sync(uint32_t delayUs)
         SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
         microseconds_delay(delayUs);
     }
+    microseconds_delay(delayUs);
     masterSyncResp[1] = 0x0;
     while (masterSyncResp[1] != 0xA7)
     {
@@ -220,6 +236,7 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs, bool isFuncTest
 {
     spi_transfer_t xfer            = {0};
     assert(packetSize >= 64+8);
+    uint32_t oriPktSize = packetSize;
     config_fcspi_speed(MASTER_TX_FREQ);
 
     microseconds_delay(delayUs);
@@ -303,7 +320,7 @@ void test_one_packet_data(uint32_t packetSize, uint32_t delayUs, bool isFuncTest
     }
 #endif
 
-    get_ack(delayUs, isFuncTest);
+    get_ack(delayUs, isFuncTest, oriPktSize);
 }
 
 void test_blhost(bool isFuncTest)
@@ -331,7 +348,7 @@ void test_blhost(bool isFuncTest)
     xfer.dataSize    = sizeof(masterGetProperty1);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack(cmdDelay, isFuncTest);
+    get_ack(cmdDelay, isFuncTest, 0);
     
     if (isFuncTest)
     {
@@ -365,7 +382,7 @@ void test_blhost(bool isFuncTest)
     xfer.dataSize    = sizeof(masterGetProperty11);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
 
-    get_ack(cmdDelay, isFuncTest);
+    get_ack(cmdDelay, isFuncTest, 0);
     
     if (isFuncTest)
     {
@@ -397,7 +414,7 @@ void test_blhost(bool isFuncTest)
     xfer.dataSize    = sizeof(masterWriteMemory);
     SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
     
-    get_ack(cmdDelay, isFuncTest);
+    get_ack(cmdDelay, isFuncTest, 0);
     
     if (isFuncTest)
     {
@@ -414,23 +431,26 @@ void test_blhost(bool isFuncTest)
     
     send_ack(cmdDelay, isFuncTest);
 
-    uint32_t loop = 2;
+    uint32_t loop = 8;
     // >=250us for 500KHz (240us failed)
     // >=350us for 4-16MHz (340us failed)
     // >=350us for 4-16MHz (340us failed)
     uint32_t pktDelay = 400;
     while (loop--)
     {
+        // First packet is for image header handling
         test_one_packet_data(1016, pktDelay, isFuncTest);
-        test_one_packet_data(1024, pktDelay, isFuncTest);
-        test_one_packet_data(1500, pktDelay, isFuncTest);
-        test_one_packet_data(2048, pktDelay, isFuncTest);
-        test_one_packet_data(4000, pktDelay, isFuncTest);
-        test_one_packet_data(4096, pktDelay, isFuncTest);
-        test_one_packet_data(8192, pktDelay, isFuncTest);
-        test_one_packet_data(16384, pktDelay, isFuncTest);
-        test_one_packet_data(32768, pktDelay, isFuncTest);
-        test_one_packet_data(64512, pktDelay, isFuncTest);
+
+        ////////////////////////////////////////////////////
+        //test_one_packet_data(1024, pktDelay, isFuncTest);
+        //test_one_packet_data(1500, pktDelay, isFuncTest);
+        //test_one_packet_data(2048, pktDelay, isFuncTest);
+        //test_one_packet_data(4000, pktDelay, isFuncTest);
+        //test_one_packet_data(4096, pktDelay, isFuncTest);
+        //test_one_packet_data(8192, pktDelay, isFuncTest);
+        //test_one_packet_data(16384, pktDelay, isFuncTest);
+        //test_one_packet_data(32768, pktDelay, isFuncTest);
+        //test_one_packet_data(64512, pktDelay, isFuncTest);
         test_one_packet_data(65535, pktDelay, isFuncTest);
         __NOP();
     }
