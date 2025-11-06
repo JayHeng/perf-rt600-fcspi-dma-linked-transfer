@@ -24,8 +24,8 @@
  * Variables
  ******************************************************************************/
 #define BUFFER_SIZE (65536)
-#define MASTER_TX_FREQ (50000000)
-#define MASTER_RX_FREQ (32000000)
+#define MASTER_TX_FREQ (48000000)
+#define MASTER_RX_FREQ (24000000)
 
 static uint8_t srcBuff[BUFFER_SIZE];
 static uint8_t destBuff[BUFFER_SIZE];
