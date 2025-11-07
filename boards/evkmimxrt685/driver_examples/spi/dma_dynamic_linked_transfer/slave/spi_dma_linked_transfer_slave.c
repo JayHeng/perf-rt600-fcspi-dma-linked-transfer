@@ -43,10 +43,6 @@ spi_dma_handle_t slaveHandle;
 
 volatile bool isTransferCompleted = false;
 static volatile uint32_t s_transferCount = 0;
-#define DMA_LINK_TRANSFER_COUNT 2
-
-static dma_handle_t s_DMA_Handle;
-DMA_ALLOCATE_LINK_DESCRIPTORS(s_dma_table, DMA_LINK_TRANSFER_COUNT);
 
 /*******************************************************************************
  * Code
@@ -55,21 +51,9 @@ static void SPI_SlaveUserCallback(SPI_Type *base, spi_dma_handle_t *handle, stat
 {
     if (status == kStatus_Success)
     {
-        if (++s_transferCount >= DMA_LINK_TRANSFER_COUNT)
+        if (++s_transferCount >= SPI_DMA_LINKED_TRANSFERS)
         {
             isTransferCompleted = true;
-        }
-    }
-}
-
-void DMA_Callback(dma_handle_t *handle, void *param, bool transferDone, uint32_t tcds)
-{
-    if (transferDone)
-    {
-        if (++s_transferCount >= DMA_LINK_TRANSFER_COUNT)
-        {
-            isTransferCompleted = true;
-            DMA_DisableChannel(DMA0, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
         }
     }
 }
@@ -132,7 +116,7 @@ static void EXAMPLE_InitBuffers(void)
     /* Initialzie the transfer data */
     for (i = 0U; i < TRANSFER_SIZE; i++)
     {
-        slaveTxData[i] = i % 256U;
+        slaveTxData[i] = (i % 16) + ((i / (TRANSFER_SIZE/SPI_DMA_LINKED_TRANSFERS)) << 4);
         slaveRxData[i] = 0U;
     }
 }
@@ -171,6 +155,22 @@ static void EXAMPLE_SlaveStartDMATransfer(void)
     if (kStatus_Success != SPI_SlaveLinkedTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXfer[0], SPI_DMA_LINKED_TRANSFERS))
     {
         PRINTF("There is an error when start SPI_SlaveTransferDMA \r\n");
+    }
+}
+
+#define DMA_LINK_TRANSFER_COUNT 2
+static dma_handle_t s_DMA_Handle;
+DMA_ALLOCATE_LINK_DESCRIPTORS(s_dma_table, DMA_LINK_TRANSFER_COUNT);
+
+void DMA_Callback(dma_handle_t *handle, void *param, bool transferDone, uint32_t tcds)
+{
+    if (transferDone)
+    {
+        if (++s_transferCount >= DMA_LINK_TRANSFER_COUNT)
+        {
+            isTransferCompleted = true;
+            DMA_DisableChannel(DMA0, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
+        }
     }
 }
 

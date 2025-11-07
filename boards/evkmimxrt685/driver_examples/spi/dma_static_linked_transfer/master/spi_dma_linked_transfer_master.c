@@ -122,7 +122,7 @@ static void EXAMPLE_MasterStartDMATransfer(void)
     for (i = 0U; i < TRANSFER_SIZE; i++)
     {
         /* SPI is configured for 8 bits transfer - set only lower 8 bits of buffers */
-        masterTxData[i] = i % 256U;
+        masterTxData[i] = (i % 16) + ((i / (TRANSFER_SIZE/SPI_DMA_LINKED_TRANSFERS)) << 4);
         masterRxData[i] = 0U;
     }
 
