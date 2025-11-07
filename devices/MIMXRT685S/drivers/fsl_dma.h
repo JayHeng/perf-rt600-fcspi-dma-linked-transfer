@@ -290,7 +290,9 @@ typedef struct _dma_handle
     uint8_t channel;       /*!< DMA channel number */
 } dma_handle_t;
 
-extern dma_descriptor_t s_dma_descriptor_table_pingpong[2];
+#define SPI_DMA_LINKED_TRANSFERS (4)
+
+extern dma_descriptor_t s_dma_descriptor_table_links[SPI_DMA_LINKED_TRANSFERS];
 
 /*******************************************************************************
  * APIs
@@ -742,7 +744,7 @@ void DMA_PrepareChannelTransfer(dma_channel_config_t *config,
  * @retval kStatus_DMA_Busy It means the given channel is busy, need to submit request later.
  */
 status_t DMA_SubmitTransfer(dma_handle_t *handle, dma_transfer_config_t *config);
-status_t DMA_SubmitPingPongTransfer(dma_handle_t *handle, dma_transfer_config_t *config, bool isPing);
+status_t DMA_SubmitLinkedTransfers(dma_handle_t *handle, dma_transfer_config_t *config, uint32_t descIdx);
 
 /*!
  * @brief Submit channel transfer paramter directly.

@@ -197,7 +197,7 @@ static void SPI_TransferSubmitNextRxDMA(SPI_Type *base, spi_dma_handle_t *handle
     handle->rxRemainingBytes -= nextRxSize;
 }
 
-void SPI_TransferSubmitPingPongNextRxDMA(SPI_Type *base, spi_dma_handle_t *handle, bool isPing)
+void SPI_TransferSubmitLinkedNextRxDMA(SPI_Type *base, spi_dma_handle_t *handle, uint32_t descIdx)
 {
     size_t nextRxSize;
     dma_transfer_config_t dmaXferConfig;
@@ -212,7 +212,7 @@ void SPI_TransferSubmitPingPongNextRxDMA(SPI_Type *base, spi_dma_handle_t *handl
     {
         dmaXferType = kDMA_PeripheralToMemory;
         nextRxData  = handle->rxNextData;
-        if (!handle->isPingpongTransfer)
+        if (!handle->isLinkedTransfer)
         {
             handle->rxNextData += nextRxSize;
         }
@@ -225,9 +225,9 @@ void SPI_TransferSubmitPingPongNextRxDMA(SPI_Type *base, spi_dma_handle_t *handl
 
     DMA_PrepareTransfer(&dmaXferConfig, address, nextRxData, handle->bytesPerFrame, nextRxSize, dmaXferType, NULL);
     dmaXferConfig.xfercfg.reload = true;
-    (void)DMA_SubmitPingPongTransfer(handle->rxHandle, &dmaXferConfig, isPing);
+    (void)DMA_SubmitLinkedTransfers(handle->rxHandle, &dmaXferConfig, descIdx);
 
-    if (!handle->isPingpongTransfer)
+    if (!handle->isLinkedTransfer)
     {
         handle->rxRemainingBytes -= nextRxSize;
     }
@@ -320,7 +320,7 @@ static status_t SPI_TransferSubmitNextTxDMA(SPI_Type *base, spi_dma_handle_t *ha
     const uint8_t *txNextData;
 
     size_t nextTxSize = MIN(DMA_MAX_TRANSFER_COUNT, handle->txRemainingBytes);
-    if (!handle->isPingpongTransfer)
+    if (!handle->isLinkedTransfer)
     {
         handle->txRemainingBytes -= nextTxSize;
     }
@@ -344,7 +344,7 @@ static status_t SPI_TransferSubmitNextTxDMA(SPI_Type *base, spi_dma_handle_t *ha
     {
         dmaXferType = kDMA_MemoryToPeripheral;
         txNextData = handle->txNextData;
-        if (!handle->isPingpongTransfer)
+        if (!handle->isLinkedTransfer)
         {
             handle->txNextData += nextTxSize;
         }
@@ -440,19 +440,27 @@ status_t SPI_MasterTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_tra
     return result;
 }
 
-status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xferPing, spi_transfer_t *xferPong)
+status_t SPI_MasterLinkedTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, void *xTransfer, uint32_t linkedTransfers)
 {
-    assert(!((NULL == handle) || (NULL == xferPing) || (NULL == xferPong)));
+    assert(!((NULL == handle) || (NULL == xTransfer)));
 
+    spi_transfer_t *xfer;
     status_t result = kStatus_Success;
     spi_config_t *spi_config_p;
 
-    if ((NULL == handle) || (NULL == xferPing) || (NULL == xferPong))
+    if ((NULL == handle) || (NULL == xTransfer))
     {
         return kStatus_InvalidArgument;
     }
 
-    if (xferPing->dataSize < handle->bytesPerFrame)
+    xfer = (spi_transfer_t *)xTransfer;
+    handle->isLinkedTransfer = (linkedTransfers >= 2);
+    if (handle->isLinkedTransfer)
+    {
+        handle->needToInvlokeRxCallback = false;
+    }
+
+    if (xfer->dataSize < handle->bytesPerFrame)
     {
         return kStatus_InvalidArgument;
     }
@@ -463,10 +471,6 @@ status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle,
         return kStatus_SPI_Busy;
     }
 
-    handle->isPingpongTransfer = true;
-    handle->pingpongBufSize = xferPing->dataSize;
-    handle->needToInvlokeRxCallback = false;
-
     /* Clear FIFOs before transfer. */
     base->FIFOCFG  |= (SPI_FIFOCFG_EMPTYTX_MASK | SPI_FIFOCFG_EMPTYRX_MASK);
     base->FIFOSTAT |= (SPI_FIFOSTAT_TXERR_MASK  | SPI_FIFOSTAT_RXERR_MASK);
@@ -476,24 +480,26 @@ status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle,
     handle->bytesPerFrame =
         (uint8_t)((spi_config_p->dataWidth > kSPI_Data8Bits) ? (sizeof(uint16_t)) : (sizeof(uint8_t)));
 
-    /* receive ping buffer*/
-    SPI_TransferSetupRxContextDMA(handle, xferPing);
     SPI_EnableRxDMA(base, true);
-    SPI_TransferSubmitPingPongNextRxDMA(base, handle, true);
+    /* receive 1st buffer*/
+    SPI_TransferSetupRxContextDMA(handle, xfer);
+    SPI_TransferSubmitLinkedNextRxDMA(base, handle, 0);
 
-    /* receive pong buffer*/
-    SPI_TransferSetupRxContextDMA(handle, xferPong);
-    SPI_TransferSubmitPingPongNextRxDMA(base, handle, false);
+    for (uint32_t i = 2; i <= linkedTransfers; i++)
+    {
+        SPI_TransferSetupRxContextDMA(handle, xfer+i-1);
+        SPI_TransferSubmitLinkedNextRxDMA(base, handle, i - 1);
+    }
 
-    DMA_SubmitChannelDescriptor(handle->rxHandle, &(s_dma_descriptor_table_pingpong[0]));
+    DMA_SubmitChannelDescriptor(handle->rxHandle, &(s_dma_descriptor_table_links[0]));
 
     handle->rxInProgress = true;
     DMA_StartTransfer(handle->rxHandle);
 
     /* transmit */
-    PrepareTxLastWord(handle, xferPing, spi_config_p);
+    PrepareTxLastWord(handle, xfer, spi_config_p);
 
-    if (xferPing->dataSize == handle->bytesPerFrame)
+    if (xfer->dataSize == handle->bytesPerFrame)
     {
         // Only one time send, write the TX register directly.
         base->FIFOWR = handle->lastword;
@@ -501,7 +507,7 @@ status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle,
         return kStatus_Success;
     }
 
-    SPI_TransferSetupTxContextDMA(base, handle, xferPing, spi_config_p);
+    SPI_TransferSetupTxContextDMA(base, handle, xfer, spi_config_p);
     SPI_EnableTxDMA(base, true);
 
     result = SPI_TransferSubmitNextTxDMA(base, handle);
@@ -587,7 +593,7 @@ status_t SPI_MasterHalfDuplexTransferDMA(SPI_Type *base, spi_dma_handle_t *handl
  */
 static void SPI_TransferRxHandlerDMA(SPI_Type *base, spi_dma_handle_t *spiHandle)
 {
-    if (spiHandle->isPingpongTransfer)
+    if (spiHandle->isLinkedTransfer)
     {
         spiHandle->needToInvlokeRxCallback = true;
         return;
@@ -627,7 +633,7 @@ static void SPI_TransferCheckTransferDoneDMA(SPI_Type *base, spi_dma_handle_t *s
 {
     if (((spiHandle->rxInProgress == false) && (spiHandle->txInProgress == false)) || (spiHandle->needToInvlokeRxCallback))
     {
-        if (spiHandle->isPingpongTransfer)
+        if (spiHandle->isLinkedTransfer)
         {
             spiHandle->needToInvlokeRxCallback = false;
         }

@@ -55,8 +55,7 @@ struct _spi_dma_handle
     uint8_t *rxNextData;         /*!< The pointer of next time rx data*/
     size_t rxRemainingBytes;     /*!< Number of data to be received [in bytes] */
     bool isSlave;                /*!< SPI work in slave mode. */
-    bool isPingpongTransfer;
-    size_t pingpongBufSize;
+    bool isLinkedTransfer;
     bool needToInvlokeRxCallback;
 };
 
@@ -107,7 +106,7 @@ status_t SPI_MasterTransferCreateHandleDMA(SPI_Type *base,
  * @retval kStatus_SPI_Busy SPI is not idle, is running another transfer.
  */
 status_t SPI_MasterTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xfer);
-status_t SPI_MasterPingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xferPing, spi_transfer_t *xferPong);
+status_t SPI_MasterLinkedTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, void *xTransfer, uint32_t linkedTransfers);
 
 /*!
  * @brief Transfers a block of data using a DMA method.
@@ -167,9 +166,9 @@ static inline status_t SPI_SlaveTransferDMA(SPI_Type *base, spi_dma_handle_t *ha
     return SPI_MasterTransferDMA(base, handle, xfer);
 }
 
-static inline status_t SPI_SlavePingPongTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, spi_transfer_t *xferPing, spi_transfer_t *xferPong)
+static inline status_t SPI_SlaveLinkedTransferDMA(SPI_Type *base, spi_dma_handle_t *handle, void *xTransfer, uint32_t linkedTransfers)
 {
-    return SPI_MasterPingPongTransferDMA(base, handle, xferPing, xferPong);
+    return SPI_MasterLinkedTransferDMA(base, handle, xTransfer, linkedTransfers);
 }
 
 /*!
