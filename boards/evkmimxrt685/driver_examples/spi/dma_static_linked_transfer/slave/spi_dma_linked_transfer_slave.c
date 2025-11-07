@@ -153,24 +153,22 @@ static void EXAMPLE_SlaveDMASetup(void)
 
 static void EXAMPLE_SlaveStartDMATransfer(void)
 {
-    spi_transfer_t slaveXferPing, slaveXferPong;
+    spi_transfer_t slaveXfer[SPI_DMA_LINKED_TRANSFERS];
 
     /* Create handle for slave instance. */
     SPI_SlaveTransferCreateHandleDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, SPI_SlaveUserCallback, NULL, &slaveTxHandle,
                                      &slaveRxHandle);
 
-    slaveXferPing.txData   = (uint8_t *)&slaveTxData;
-    slaveXferPing.rxData   = (uint8_t *)&slaveRxData;
-    slaveXferPing.dataSize = (TRANSFER_SIZE / 2) * sizeof(slaveTxData[0]);
-    slaveXferPing.configFlags = kSPI_FrameAssert;
-
-    slaveXferPong.txData   = (uint8_t *)&slaveTxData[TRANSFER_SIZE/2];
-    slaveXferPong.rxData   = (uint8_t *)&slaveRxData[TRANSFER_SIZE/2];
-    slaveXferPong.dataSize = (TRANSFER_SIZE / 2) * sizeof(slaveTxData[0]);
-    slaveXferPong.configFlags = kSPI_FrameAssert;
+    for (uint32_t i = 0; i < SPI_DMA_LINKED_TRANSFERS; i++)
+    {
+        slaveXfer[i].txData   = (uint8_t *)&slaveTxData[i*TRANSFER_SIZE/SPI_DMA_LINKED_TRANSFERS];
+        slaveXfer[i].rxData   = (uint8_t *)&slaveRxData[i*TRANSFER_SIZE/SPI_DMA_LINKED_TRANSFERS];
+        slaveXfer[i].dataSize = (TRANSFER_SIZE / SPI_DMA_LINKED_TRANSFERS) * sizeof(slaveTxData[0]);
+        slaveXfer[i].configFlags = kSPI_FrameAssert;
+    }
 
     /* Start transfer, when transmission complete, the SPI_SlaveUserCallback will be called. */
-    if (kStatus_Success != SPI_SlavePingPongTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXferPing, &slaveXferPong))
+    if (kStatus_Success != SPI_SlaveLinkedTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXfer[0], SPI_DMA_LINKED_TRANSFERS))
     {
         PRINTF("There is an error when start SPI_SlaveTransferDMA \r\n");
     }
