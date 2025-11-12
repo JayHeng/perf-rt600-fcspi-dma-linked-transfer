@@ -80,9 +80,9 @@ int main(void)
     EXAMPLE_SlaveDMASetup();
 
     /* Start SPI DMA transfer. */
-    EXAMPLE_SlaveStartDMATransfer();
+    //EXAMPLE_SlaveStartDMATransfer();
     
-    //EXAMPLE_SlaveDMASetupAndStartTransfer();
+    EXAMPLE_SlaveDMASetupAndStartTransfer();
 
     /* Waiting for transmission complete and check if all data matched. */
     EXAMPLE_TransferDataCheck();
@@ -158,7 +158,7 @@ static void EXAMPLE_SlaveStartDMATransfer(void)
     }
 }
 
-#define DMA_LINK_TRANSFER_COUNT 2
+#define DMA_LINK_TRANSFER_COUNT 4
 static dma_handle_t s_DMA_Handle;
 DMA_ALLOCATE_LINK_DESCRIPTORS(s_dma_table, DMA_LINK_TRANSFER_COUNT);
 
@@ -170,6 +170,20 @@ void DMA_Callback(dma_handle_t *handle, void *param, bool transferDone, uint32_t
         {
             isTransferCompleted = true;
             DMA_DisableChannel(DMA0, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
+        }
+        else if (s_transferCount == 1)
+        {
+            DMA_SetupDescriptor(&(s_dma_table[2]),
+                                DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
+                                                 1, TRANSFER_SIZE/4),
+                                (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[TRANSFER_SIZE*2/4], &(s_dma_table[3]));
+        }
+        else if (s_transferCount == 2)
+        {
+            DMA_SetupDescriptor(&(s_dma_table[3]),
+                                DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
+                                                 1, TRANSFER_SIZE/4),
+                                (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[TRANSFER_SIZE*3/4], &(s_dma_table[0]));
         }
     }
 }
@@ -183,19 +197,19 @@ static void EXAMPLE_SlaveDMASetupAndStartTransfer(void)
 
     DMA_SetupDescriptor(&(s_dma_table[0]),
                         DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
-                                         1, TRANSFER_SIZE/2),
+                                         1, TRANSFER_SIZE/4),
                         (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[0], &(s_dma_table[1]));
-
-    DMA_SetupDescriptor(&(s_dma_table[1]),
-                        DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
-                                         1, TRANSFER_SIZE/2),
-                        (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[TRANSFER_SIZE/2], &(s_dma_table[0]));
 
     DMA_SubmitChannelDescriptor(&s_DMA_Handle, &(s_dma_table[0]));
 
     DMA_EnableChannelPeriphRq(EXAMPLE_DMA, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
     SPI_EnableRxDMA(EXAMPLE_SPI_SLAVE, true);
     DMA_StartTransfer(&s_DMA_Handle);
+    
+    DMA_SetupDescriptor(&(s_dma_table[1]),
+                        DMA_CHANNEL_XFER(true, false, true, false, 1U, 0,
+                                         1, TRANSFER_SIZE/4),
+                        (void *)&EXAMPLE_SPI_SLAVE->FIFORD, &slaveRxData[TRANSFER_SIZE/4], &(s_dma_table[2]));
 }
 
 static void EXAMPLE_TransferDataCheck(void)
