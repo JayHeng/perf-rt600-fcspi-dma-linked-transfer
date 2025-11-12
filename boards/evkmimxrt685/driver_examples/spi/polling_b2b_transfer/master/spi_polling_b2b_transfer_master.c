@@ -24,7 +24,7 @@
  * Variables
  ******************************************************************************/
 #define BUFFER_SIZE (65536)
-#define MASTER_TX_FREQ (43000000)
+#define MASTER_TX_FREQ (35000000)
 #define MASTER_RX_FREQ (12000000)
 
 static uint8_t srcBuff[BUFFER_SIZE];
@@ -435,22 +435,22 @@ void test_blhost(bool isFuncTest)
     // >=250us for 500KHz (240us failed)
     // >=350us for 4-16MHz (340us failed)
     // >=350us for 4-16MHz (340us failed)
-    uint32_t pktDelay = 400;
+    uint32_t pktDelay = 420;
     while (loop--)
     {
         // First packet is for image header handling
         test_one_packet_data(1016, pktDelay, isFuncTest);
 
         ////////////////////////////////////////////////////
-        //test_one_packet_data(1024, pktDelay, isFuncTest);
-        //test_one_packet_data(1500, pktDelay, isFuncTest);
-        //test_one_packet_data(2048, pktDelay, isFuncTest);
-        //test_one_packet_data(4000, pktDelay, isFuncTest);
-        //test_one_packet_data(4096, pktDelay, isFuncTest);
-        //test_one_packet_data(8192, pktDelay, isFuncTest);
-        //test_one_packet_data(16384, pktDelay, isFuncTest);
-        //test_one_packet_data(32768, pktDelay, isFuncTest);
-        //test_one_packet_data(64512, pktDelay, isFuncTest);
+        test_one_packet_data(1024, pktDelay, isFuncTest);
+        test_one_packet_data(1500, pktDelay, isFuncTest);
+        test_one_packet_data(2048, pktDelay, isFuncTest);
+        test_one_packet_data(4000, pktDelay, isFuncTest);
+        test_one_packet_data(4096, pktDelay, isFuncTest);
+        test_one_packet_data(8192, pktDelay, isFuncTest);
+        test_one_packet_data(16384, pktDelay, isFuncTest);
+        test_one_packet_data(32768, pktDelay, isFuncTest);
+        test_one_packet_data(64512, pktDelay, isFuncTest);
         test_one_packet_data(65535, pktDelay, isFuncTest);
         __NOP();
     }
