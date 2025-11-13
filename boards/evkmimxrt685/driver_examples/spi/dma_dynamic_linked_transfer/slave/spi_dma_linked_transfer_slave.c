@@ -80,9 +80,9 @@ int main(void)
     EXAMPLE_SlaveDMASetup();
 
     /* Start SPI DMA transfer. */
-    //EXAMPLE_SlaveStartDMATransfer();
+    EXAMPLE_SlaveStartDMATransfer();
     
-    EXAMPLE_SlaveDMASetupAndStartTransfer();
+    //EXAMPLE_SlaveDMASetupAndStartTransfer();
 
     /* Waiting for transmission complete and check if all data matched. */
     EXAMPLE_TransferDataCheck();
@@ -135,6 +135,9 @@ static void EXAMPLE_SlaveDMASetup(void)
     DMA_CreateHandle(&slaveRxHandle, EXAMPLE_DMA, EXAMPLE_SPI_SLAVE_RX_CHANNEL);
 }
 
+
+extern void SPI_TransferSubmitLinkedNextRxDMA(SPI_Type *base, spi_dma_handle_t *handle, uint32_t descIdx);
+
 static void EXAMPLE_SlaveStartDMATransfer(void)
 {
     spi_transfer_t slaveXfer[SPI_DMA_LINKED_TRANSFERS];
@@ -152,9 +155,15 @@ static void EXAMPLE_SlaveStartDMATransfer(void)
     }
 
     /* Start transfer, when transmission complete, the SPI_SlaveUserCallback will be called. */
-    if (kStatus_Success != SPI_SlaveLinkedTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXfer[0], SPI_DMA_LINKED_TRANSFERS))
+    if (kStatus_Success != SPI_SlaveLinkedTransferDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, &slaveXfer[0], 2))
     {
         PRINTF("There is an error when start SPI_SlaveTransferDMA \r\n");
+    }
+    
+    for (uint32_t i = 2; i < SPI_DMA_LINKED_TRANSFERS; i++)
+    {
+        slaveHandle.rxNextData = slaveXfer[i].rxData;
+        SPI_TransferSubmitLinkedNextRxDMA(EXAMPLE_SPI_SLAVE, &slaveHandle, i);
     }
 }
 

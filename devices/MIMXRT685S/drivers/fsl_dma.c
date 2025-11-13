@@ -986,13 +986,16 @@ status_t DMA_SubmitLinkedTransfers(dma_handle_t *handle, dma_transfer_config_t *
     //}
 
     /* enable/disable peripheral request */
-    if (config->isPeriph)
+    //if (!descIdx)
     {
-        DMA_EnableChannelPeriphRq(handle->base, handle->channel);
-    }
-    else
-    {
-        DMA_DisableChannelPeriphRq(handle->base, handle->channel);
+        if (config->isPeriph)
+        {
+            DMA_EnableChannelPeriphRq(handle->base, handle->channel);
+        }
+        else
+        {
+            DMA_DisableChannelPeriphRq(handle->base, handle->channel);
+        }
     }
 
     if (descIdx < SPI_DMA_LINKED_TRANSFERS - 1)
@@ -1003,8 +1006,11 @@ status_t DMA_SubmitLinkedTransfers(dma_handle_t *handle, dma_transfer_config_t *
     {
         DMA_CreateDescriptor(&(s_dma_descriptor_table_links[descIdx]), &config->xfercfg, config->srcAddr, config->dstAddr, &(s_dma_descriptor_table_links[0]));
     }
-    /* Set channel XFERCFG register according first channel descriptor. */
-    handle->base->CHANNEL[handle->channel].XFERCFG = s_dma_descriptor_table_links[descIdx].xfercfg;
+    if (!descIdx)
+    {
+        /* Set channel XFERCFG register according first channel descriptor. */
+        handle->base->CHANNEL[handle->channel].XFERCFG = s_dma_descriptor_table_links[descIdx].xfercfg;
+    }
 
     return kStatus_Success;
 }
