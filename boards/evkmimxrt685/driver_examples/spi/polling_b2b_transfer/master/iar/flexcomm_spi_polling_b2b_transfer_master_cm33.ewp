@@ -2521,7 +2521,7 @@
                 </option>
                 <option>
                     <name>CCDefines</name>
-                    <state>DEBUG</state>
+                    <state>NDEBUG</state>
                     <state>SDK_DEBUGCONSOLE=1</state>
                     <state>MCUX_META_BUILD</state>
                     <state>MCUXPRESSO_SDK</state>

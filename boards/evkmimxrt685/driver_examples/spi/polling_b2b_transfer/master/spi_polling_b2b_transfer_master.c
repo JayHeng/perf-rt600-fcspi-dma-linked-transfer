@@ -462,9 +462,6 @@ int main(void)
 {
     spi_master_config_t userConfig = {0};
     uint32_t srcFreq               = 0;
-    uint32_t i                     = 0;
-    uint32_t err                   = 0;
-    spi_transfer_t xfer            = {0};
 
     BOARD_InitHardware();
     microseconds_init();
@@ -495,33 +492,6 @@ int main(void)
     PRINTF("\n\rInitial SPI Clock freq = %dHz...\n\r", userConfig.baudRate_Bps);
 
     test_blhost(false);
-
-    /* Init Buffer*/
-    for (i = 0; i < BUFFER_SIZE; i++)
-    {
-        srcBuff[i] = i;
-    }
-
-    /*Start Transfer*/
-    xfer.txData      = srcBuff;
-    xfer.rxData      = destBuff;
-    xfer.dataSize    = sizeof(destBuff);
-    xfer.configFlags = kSPI_FrameAssert;
-    SPI_MasterTransferBlocking(EXAMPLE_SPI_MASTER, &xfer);
-
-    /*Check if the data is right*/
-    for (i = 0; i < BUFFER_SIZE; i++)
-    {
-        if (srcBuff[i] != destBuff[i])
-        {
-            err++;
-            PRINTF("The %d is wrong! data is %d\n\r", i, destBuff[i]);
-        }
-    }
-    if (err == 0)
-    {
-        PRINTF("Succeed!\n\r");
-    }
 
     while (1)
     {
